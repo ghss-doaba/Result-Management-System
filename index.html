@@ -555,6 +555,27 @@ label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
 
       <div class="card">
         <div class="settings-section">
+          <h3>🏛️ Education Department Logo</h3>
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">Yeh logo result card par upar left side mein print hoga.</p>
+          <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">
+            <div id="logo2PreviewWrap" style="width:100px;height:100px;border:2px dashed var(--border);border-radius:12px;display:flex;align-items:center;justify-content:center;background:var(--bg);font-size:36px;overflow:hidden">
+              <img id="logo2PreviewImg" style="display:none;width:100%;height:100%;object-fit:contain" src="">
+              <span id="logo2PlaceholderIcon">🏛️</span>
+            </div>
+            <div>
+              <label class="btn btn-outline" style="cursor:pointer;display:inline-flex;align-items:center;gap:8px">
+                📁 Dept. Logo Select Karein
+                <input type="file" id="logo2FileInput" accept="image/*" style="display:none" onchange="previewLogo2(this)">
+              </label>
+              <p style="font-size:12px;color:var(--text-muted);margin-top:8px">Logo browser mein save hoga</p>
+              <button class="btn btn-danger btn-sm" style="margin-top:8px" onclick="removeLogo2()">🗑️ Logo Hatayein</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="settings-section">
           <h3>📊 Grading System</h3>
           <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">Percentage ke hisaab se grades set karein. Jo grade pehle match ho woh lagega.</p>
           <div id="gradingRows" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
@@ -798,6 +819,38 @@ function getStoredLogo() {
   return localStorage.getItem('schoolLogo') || null;
 }
 
+function previewLogo2(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    localStorage.setItem('deptLogo', e.target.result);
+    showLogo2Preview(e.target.result);
+  };
+  reader.readAsDataURL(file);
+}
+
+function showLogo2Preview(dataUrl) {
+  const img = document.getElementById('logo2PreviewImg');
+  const icon = document.getElementById('logo2PlaceholderIcon');
+  if (dataUrl) { img.src = dataUrl; img.style.display = 'block'; if (icon) icon.style.display = 'none'; }
+  else { img.style.display = 'none'; if (icon) icon.style.display = 'block'; }
+}
+
+function removeLogo2() {
+  if (!confirm('Dept logo hatana chahte hain?')) return;
+  localStorage.removeItem('deptLogo');
+  const img = document.getElementById('logo2PreviewImg');
+  if (img) img.style.display = 'none';
+  const icon = document.getElementById('logo2PlaceholderIcon');
+  if (icon) icon.style.display = 'block';
+  const inp = document.getElementById('logo2FileInput');
+  if (inp) inp.value = '';
+}
+
+function getStoredLogo2() {
+  return localStorage.getItem('deptLogo') || null;
+}
+
 // ===== GRADING SYSTEM =====
 let gradingSystem = [];
 
@@ -818,6 +871,8 @@ function loadGradingSystem() {
   renderGradingRows();
   const logo = getStoredLogo();
   if (logo) showLogoPreview(logo);
+  const logo2 = getStoredLogo2();
+  if (logo2) showLogo2Preview(logo2);
 }
 
 function renderGradingRows() {
@@ -891,6 +946,21 @@ async function loadResultCardPreview() {
 
   const today = new Date().toLocaleDateString('en-PK', { day:'2-digit', month:'long', year:'numeric' });
   const logo = getStoredLogo();
+  const logo2 = getStoredLogo2();
+
+  // Pre-calculate each student's total for correct position ranking
+  const studentTotalsMap = {};
+  students.forEach(s => {
+    let t = 0;
+    subjects.forEach(sub => { t += (mm[`${s.id}_${sub.id}`] || 0); });
+    studentTotalsMap[s.id] = t;
+  });
+  const sortedByMarks = [...students].sort((a, b) => studentTotalsMap[b.id] - studentTotalsMap[a.id]);
+  const positionMap = {};
+  sortedByMarks.forEach((s, i) => {
+    const suffix = i === 0 ? 'st' : i === 1 ? 'nd' : i === 2 ? 'rd' : 'th';
+    positionMap[s.id] = { pos: i + 1, suffix };
+  });
 
   let html = `<div style="margin-top:16px">
     <div class="flex-between" style="margin-bottom:14px">
@@ -900,6 +970,7 @@ async function loadResultCardPreview() {
     <div id="resultCardsContainer">`;
 
   students.forEach((student, idx) => {
+    const studentPos = positionMap[student.id] || { pos: '—', suffix: '' };
     let totalObtained = 0, totalMax = 0, allPass = true;
     let subjectRows = '';
     subjects.forEach(sub => {
@@ -927,16 +998,15 @@ async function loadResultCardPreview() {
     html += `<div class="result-card" style="background:white;border:2px solid #1a56db;border-radius:12px;padding:24px;margin-bottom:20px;max-width:720px;page-break-after:always">
       <!-- Header -->
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;padding-bottom:16px;border-bottom:2px solid #1a56db">
-        ${logo ? `<img src="${logo}" style="width:80px;height:80px;object-fit:contain;border-radius:8px;flex-shrink:0">` : '<div style="width:80px;height:80px;background:#e8f0fe;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:36px;flex-shrink:0">🏫</div>'}
+        <div style="width:80px;height:80px;border-radius:8px;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#e8f0fe">
+          ${logo2 ? `<img src="${logo2}" style="width:100%;height:100%;object-fit:contain">` : '<div style="font-size:32px">🏛️</div>'}
+        </div>
         <div style="flex:1;text-align:center">
           <div style="font-size:20px;font-weight:900;color:#0f172a;line-height:1.2">${schoolName}</div>
           <div style="font-size:13px;font-weight:600;color:#1a56db;margin-top:4px;letter-spacing:1px">${examName}</div>
           <div style="font-size:12px;color:#6b7280;margin-top:2px">Date: ${today}</div>
         </div>
-        <div style="width:80px;height:80px;background:linear-gradient(135deg,#1a56db,#7c3aed);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;flex-direction:column">
-          <div style="color:white;font-size:22px;font-weight:900">${grade}</div>
-          <div style="color:rgba(255,255,255,0.8);font-size:11px">Grade</div>
-        </div>
+        ${logo ? `<img src="${logo}" style="width:80px;height:80px;object-fit:contain;border-radius:8px;flex-shrink:0">` : '<div style="width:80px;height:80px;background:#e8f0fe;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:36px;flex-shrink:0">🏫</div>'}
       </div>
       <!-- Student Info -->
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;background:#f0f4ff;padding:12px;border-radius:8px">
@@ -967,7 +1037,7 @@ async function loadResultCardPreview() {
       <!-- Position Banner -->
       <div style="margin-top:12px;background:linear-gradient(135deg,#1a56db,#7c3aed);border-radius:10px;padding:12px 16px;text-align:center;color:white">
         <div style="font-size:13px;opacity:0.85">Class Position</div>
-        <div style="font-size:18px;font-weight:900;margin-top:2px">🏆 You stood ${idx+1}${idx===0?'st':idx===1?'nd':idx===2?'rd':'th'} out of ${students.length} students in the class</div>
+        <div style="font-size:18px;font-weight:900;margin-top:2px">🏆 You stood ${studentPos.pos}${studentPos.suffix} out of ${students.length} students in the class</div>
       </div>
       <!-- Signature -->
       <div style="display:flex;justify-content:space-between;margin-top:20px;padding-top:14px;border-top:1px dashed #e5e7eb">
@@ -1624,6 +1694,7 @@ async function viewSingleResultCard(studentId, classId) {
   const examName = settingDoc.exists && settingDoc.data().examName ? settingDoc.data().examName : 'Examination';
   const today = new Date().toLocaleDateString('en-PK', { day:'2-digit', month:'long', year:'numeric' });
   const logo = getStoredLogo();
+  const logo2 = getStoredLogo2();
 
   // Calculate position among all students in class
   const classStudents = allStudents.filter(s => s.classId === classId);
@@ -1664,16 +1735,15 @@ async function viewSingleResultCard(studentId, classId) {
   const cardHTML = `
     <div style="background:white;border:2px solid #1a56db;border-radius:12px;padding:24px;max-width:720px;font-family:Outfit,sans-serif">
       <div style="display:flex;align-items:center;gap:16px;margin-bottom:16px;padding-bottom:16px;border-bottom:2px solid #1a56db">
-        ${logo ? `<img src="${logo}" style="width:80px;height:80px;object-fit:contain;border-radius:8px;flex-shrink:0">` : '<div style="width:80px;height:80px;background:#e8f0fe;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:36px;flex-shrink:0">🏫</div>'}
+        <div style="width:80px;height:80px;border-radius:8px;flex-shrink:0;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#e8f0fe">
+          ${logo2 ? `<img src="${logo2}" style="width:100%;height:100%;object-fit:contain">` : '<div style="font-size:32px">🏛️</div>'}
+        </div>
         <div style="flex:1;text-align:center">
           <div style="font-size:20px;font-weight:900;color:#0f172a;line-height:1.2">${schoolName}</div>
           <div style="font-size:13px;font-weight:600;color:#1a56db;margin-top:4px;letter-spacing:1px">${examName}</div>
           <div style="font-size:12px;color:#6b7280;margin-top:2px">Date: ${today}</div>
         </div>
-        <div style="width:80px;height:80px;background:linear-gradient(135deg,#1a56db,#7c3aed);border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;flex-direction:column">
-          <div style="color:white;font-size:22px;font-weight:900">${grade}</div>
-          <div style="color:rgba(255,255,255,0.8);font-size:11px">Grade</div>
-        </div>
+        ${logo ? `<img src="${logo}" style="width:80px;height:80px;object-fit:contain;border-radius:8px;flex-shrink:0">` : '<div style="width:80px;height:80px;background:#e8f0fe;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:36px;flex-shrink:0">🏫</div>'}
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:16px;background:#f0f4ff;padding:12px;border-radius:8px">
         <div><div style="font-size:11px;color:#6b7280;font-weight:600">Student Name</div><div style="font-weight:700;font-size:14px">${student.name}</div></div>
