@@ -478,11 +478,21 @@ label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
     <div id="page-results" class="page">
       <div class="page-header"><h1>View Results</h1><p>Merged result dekhein</p></div>
       <div class="card">
-        <div class="form-group mb-4">
-          <label>Class Select karein</label>
-          <select id="resultClassFilter" onchange="loadResultView()">
-            <option value="">-- Class chunein --</option>
-          </select>
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+          <div class="form-group" style="flex:1;min-width:180px;margin:0">
+            <label>Class Select karein</label>
+            <select id="resultClassFilter" onchange="loadResultView()">
+              <option value="">-- Class chunein --</option>
+            </select>
+          </div>
+          <div class="form-group" style="flex:1;min-width:180px;margin:0">
+            <label>Semester Select karein</label>
+            <select id="resultSemFilter" onchange="loadResultView()">
+              <option value="1">📘 Semester 1</option>
+              <option value="2">📗 Semester 2</option>
+              <option value="final">🏆 Final Combined</option>
+            </select>
+          </div>
         </div>
         <div id="resultViewContent"><div class="empty-state"><div class="emoji">📋</div><h3>Class select karein</h3></div></div>
       </div>
@@ -576,8 +586,42 @@ label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
 
       <div class="card">
         <div class="settings-section">
+          <h3>📅 Semester Settings</h3>
+          <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">Dono semesters ke naam aur weightage set karein. Dono ka total 100% hona chahiye.</p>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:14px">
+            <div style="background:var(--bg);padding:14px;border-radius:10px;border:1px solid var(--border)">
+              <div style="font-weight:700;color:var(--primary);margin-bottom:10px">📘 Semester 1</div>
+              <div class="form-group"><label>Naam</label><input type="text" id="sem1Name" placeholder="e.g. First Term"></div>
+              <div class="form-group"><label>Weightage (%)</label><input type="number" id="sem1Weight" placeholder="e.g. 40" min="1" max="99"></div>
+            </div>
+            <div style="background:var(--bg);padding:14px;border-radius:10px;border:1px solid var(--border)">
+              <div style="font-weight:700;color:var(--primary);margin-bottom:10px">📗 Semester 2</div>
+              <div class="form-group"><label>Naam</label><input type="text" id="sem2Name" placeholder="e.g. Second Term"></div>
+              <div class="form-group"><label>Weightage (%)</label><input type="number" id="sem2Weight" placeholder="e.g. 60" min="1" max="99"></div>
+            </div>
+          </div>
+          <div id="semesterSaveMsg"></div>
+          <button class="btn btn-primary btn-sm" onclick="saveSemesterSettings()">💾 Semester Settings Save</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="settings-section">
           <h3>📊 Grading System</h3>
           <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">Percentage ke hisaab se grades set karein. Jo grade pehle match ho woh lagega.</p>
+
+          <div style="background:var(--danger-light);border:1px solid var(--danger);border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">
+            <span style="font-size:20px">❌</span>
+            <div style="flex:1">
+              <div style="font-weight:700;color:var(--danger);font-size:14px">FAIL Threshold</div>
+              <div style="font-size:12px;color:var(--text-muted);margin-top:2px">Is percentage se kam marks lene wala student FAIL hoga</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+              <input type="number" id="failThresholdInput" min="0" max="100" value="33" style="width:70px;text-align:center;font-weight:700;font-size:16px;border:2px solid var(--danger);border-radius:8px;padding:6px">
+              <span style="font-weight:700;color:var(--danger)">%</span>
+            </div>
+          </div>
+
           <div id="gradingRows" style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px"></div>
           <div style="display:flex;gap:8px;flex-wrap:wrap">
             <button class="btn btn-outline btn-sm" onclick="addGradeRow()">+ Grade Add Karein</button>
@@ -591,11 +635,21 @@ label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
         <div class="settings-section">
           <h3>🖨️ Result Cards Print</h3>
           <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">Class select karein aur sab students ke result cards ek saath print karein</p>
-          <div class="form-group">
-            <label>Class Select Karein</label>
-            <select id="resultCardClassFilter" onchange="loadResultCardPreview()">
-              <option value="">-- Class chunein --</option>
-            </select>
+          <div style="display:flex;gap:12px;flex-wrap:wrap">
+            <div class="form-group" style="flex:1;min-width:180px">
+              <label>Class Select Karein</label>
+              <select id="resultCardClassFilter" onchange="loadResultCardPreview()">
+                <option value="">-- Class chunein --</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:1;min-width:180px">
+              <label>Semester / Result Type</label>
+              <select id="resultCardSemFilter" onchange="loadResultCardPreview()">
+                <option value="final">🏆 Final Combined Result</option>
+                <option value="1">📘 Semester 1 Only</option>
+                <option value="2">📗 Semester 2 Only</option>
+              </select>
+            </div>
           </div>
           <div id="resultCardPreviewArea"></div>
         </div>
@@ -629,6 +683,13 @@ label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
     <!-- TEACHER MARKS -->
     <div id="page-teacherMarks" class="page">
       <div class="page-header"><h1>Marks Enter Karein</h1><p>Apne assigned subjects ke marks enter karein</p></div>
+      <div id="semesterSelectorWrap" style="margin-bottom:16px">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+          <span style="font-weight:700;font-size:14px">📅 Semester:</span>
+          <button id="semBtn1" onclick="selectSemester(1)" class="btn btn-primary btn-sm">Semester 1</button>
+          <button id="semBtn2" onclick="selectSemester(2)" class="btn btn-outline btn-sm">Semester 2</button>
+        </div>
+      </div>
       <div id="teacherSubjectTabs" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px"></div>
       <div id="teacherMarksContent"><div class="loading"><div class="spinner"></div></div></div>
     </div>
@@ -851,8 +912,64 @@ function getStoredLogo2() {
   return localStorage.getItem('deptLogo') || null;
 }
 
+// ===== SEMESTER SETTINGS =====
+let semesterSettings = { sem1Name: 'Semester 1', sem1Weight: 40, sem2Name: 'Semester 2', sem2Weight: 60 };
+let activeSemester = 1;
+
+function loadSemesterSettings() {
+  const stored = localStorage.getItem('semesterSettings');
+  if (stored) semesterSettings = JSON.parse(stored);
+  const s1n = document.getElementById('sem1Name');
+  const s1w = document.getElementById('sem1Weight');
+  const s2n = document.getElementById('sem2Name');
+  const s2w = document.getElementById('sem2Weight');
+  if (s1n) s1n.value = semesterSettings.sem1Name;
+  if (s1w) s1w.value = semesterSettings.sem1Weight;
+  if (s2n) s2n.value = semesterSettings.sem2Name;
+  if (s2w) s2w.value = semesterSettings.sem2Weight;
+  updateSemesterBtnLabels();
+}
+
+function saveSemesterSettings() {
+  const msg = document.getElementById('semesterSaveMsg');
+  const s1n = document.getElementById('sem1Name').value.trim() || 'Semester 1';
+  const s1w = parseInt(document.getElementById('sem1Weight').value) || 40;
+  const s2n = document.getElementById('sem2Name').value.trim() || 'Semester 2';
+  const s2w = parseInt(document.getElementById('sem2Weight').value) || 60;
+  if (s1w + s2w !== 100) {
+    msg.innerHTML = '<div class="alert alert-danger">⚠️ Dono weightages ka total 100% hona chahiye! Abhi: ' + (s1w+s2w) + '%</div>';
+    return;
+  }
+  semesterSettings = { sem1Name: s1n, sem1Weight: s1w, sem2Name: s2n, sem2Weight: s2w };
+  localStorage.setItem('semesterSettings', JSON.stringify(semesterSettings));
+  updateSemesterBtnLabels();
+  msg.innerHTML = '<div class="alert alert-success">✅ Semester settings save ho gayi!</div>';
+  setTimeout(() => msg.innerHTML = '', 3000);
+}
+
+function updateSemesterBtnLabels() {
+  const b1 = document.getElementById('semBtn1');
+  const b2 = document.getElementById('semBtn2');
+  if (b1) b1.textContent = semesterSettings.sem1Name + ' (' + semesterSettings.sem1Weight + '%)';
+  if (b2) b2.textContent = semesterSettings.sem2Name + ' (' + semesterSettings.sem2Weight + '%)';
+}
+
+function selectSemester(num) {
+  activeSemester = num;
+  const b1 = document.getElementById('semBtn1');
+  const b2 = document.getElementById('semBtn2');
+  if (b1) { b1.className = num===1 ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm'; }
+  if (b2) { b2.className = num===2 ? 'btn btn-primary btn-sm' : 'btn btn-outline btn-sm'; }
+  loadTeacherMarksPage();
+}
+
+function getSemesterKey(sem) {
+  return `sem${sem}_`;
+}
+
 // ===== GRADING SYSTEM =====
 let gradingSystem = [];
+let failThreshold = 33;
 
 function loadGradingSystem() {
   const stored = localStorage.getItem('gradingSystem');
@@ -869,6 +986,10 @@ function loadGradingSystem() {
     ];
   }
   renderGradingRows();
+  const ft = localStorage.getItem('failThreshold');
+  failThreshold = ft !== null ? parseInt(ft) : 33;
+  const ftEl = document.getElementById('failThresholdInput');
+  if (ftEl) ftEl.value = failThreshold;
   const logo = getStoredLogo();
   if (logo) showLogoPreview(logo);
   const logo2 = getStoredLogo2();
@@ -908,6 +1029,11 @@ function updateGrade(i, key, val) {
 
 function saveGradingSystem() {
   const msg = document.getElementById('gradingSaveMsg');
+  const ftEl = document.getElementById('failThresholdInput');
+  if (ftEl) {
+    failThreshold = parseInt(ftEl.value) || 33;
+    localStorage.setItem('failThreshold', failThreshold);
+  }
   gradingSystem.sort((a, b) => b.minPct - a.minPct);
   localStorage.setItem('gradingSystem', JSON.stringify(gradingSystem));
   renderGradingRows();
@@ -916,6 +1042,7 @@ function saveGradingSystem() {
 }
 
 function getGradeForPct(pct) {
+  if (pct < failThreshold) return 'F';
   for (const g of gradingSystem) {
     if (pct >= g.minPct) return g.grade;
   }
@@ -936,9 +1063,18 @@ async function loadResultCardPreview() {
   if (!students.length) { el.innerHTML = '<div class="alert alert-warning">Is class mein koi student nahi</div>'; return; }
   if (!subjects.length) { el.innerHTML = '<div class="alert alert-warning">Is class mein koi subject nahi</div>'; return; }
 
+  semFilter = semFilter || '1';
   const snap = await db.collection('marks').where('classId','==',classId).get();
-  const mm = {};
-  snap.docs.forEach(d => { const dt = d.data(); mm[`${dt.studentId}_${dt.subjectId}`] = dt.marks; });
+  const mm1={}, mm2={};
+  snap.docs.forEach(d => {
+    const dt=d.data();
+    if(dt.semester===2) mm2[`${dt.studentId}_${dt.subjectId}`]=dt.marks;
+    else mm1[`${dt.studentId}_${dt.subjectId}`]=dt.marks;
+  });
+  const isFinal=semFilter==='final'; const isSem2=semFilter==='2';
+  const activeMap=isSem2?mm2:mm1;
+  const w1=semesterSettings.sem1Weight/100; const w2=semesterSettings.sem2Weight/100;
+  const cardTitle=isFinal?'Final Combined Result':semFilter==='1'?semesterSettings.sem1Name:semesterSettings.sem2Name;
 
   const settingDoc = await db.collection('settings').doc('school').get();
   const schoolName = settingDoc.exists && settingDoc.data().name ? settingDoc.data().name : 'My School';
@@ -1132,6 +1268,7 @@ async function initApp(userData) {
   await loadAllData();
   await loadSchoolName();
   loadGradingSystem();
+  loadSemesterSettings();
   if (userData.role === 'admin') {
     document.getElementById('adminNav').style.display = 'block';
     document.getElementById('teacherNav').style.display = 'none';
@@ -1180,7 +1317,7 @@ function showPage(page, el) {
   else if (page === 'students') { populateAllClassDropdowns(); loadStudents(); }
   else if (page === 'results') populateResultFilter();
   else if (page === 'reports') populatePdfFilter();
-  else if (page === 'settings') { loadSchoolName(); loadGradingSystem(); populateResultCardFilter(); }
+  else if (page === 'settings') { loadSchoolName(); loadGradingSystem(); loadSemesterSettings(); populateResultCardFilter(); }
   else if (page === 'teacherMarks') loadTeacherMarksPage();
   else if (page === 'teacherView') loadTeacherViewPage();
 }
@@ -1547,8 +1684,9 @@ async function renderTeacherMarksForm(sub) {
   const contentEl = document.getElementById('teacherMarksContent');
   const cls = allClasses.find(c=>c.id===sub.classId);
   const students = allStudents.filter(s=>s.classId===sub.classId).sort((a,b)=>String(a.rollNo).localeCompare(String(b.rollNo),undefined,{numeric:true}));
+  const semLabel = activeSemester === 1 ? semesterSettings.sem1Name : semesterSettings.sem2Name;
 
-  const marksSnap = await db.collection('marks').where('subjectId','==',sub.id).where('classId','==',sub.classId).get();
+  const marksSnap = await db.collection('marks').where('subjectId','==',sub.id).where('classId','==',sub.classId).where('semester','==',activeSemester).get();
   const existing = {};
   marksSnap.docs.forEach(d => existing[d.data().studentId] = d.data().marks);
 
@@ -1557,7 +1695,7 @@ async function renderTeacherMarksForm(sub) {
     return;
   }
 
-  let html = `<div class="teacher-subject-card"><h2>📝 ${sub.name}</h2><p>${cls?cls.name:''} — Total: ${sub.totalMarks} | Pass: ${sub.passMarks}</p></div>
+  let html = `<div class="teacher-subject-card"><h2>📝 ${sub.name} — ${semLabel}</h2><p>${cls?cls.name:''} — Total: ${sub.totalMarks} | Pass: ${sub.passMarks}</p></div>
   <div class="card">
     <div id="saveMsg_${sub.id}"></div>
     <div class="table-wrapper">
@@ -1596,8 +1734,10 @@ async function saveAllMarks(subjectId, classId, passMarks) {
     const inp = document.getElementById(`mk_${subjectId}_${s.id}`);
     if (!inp || inp.value.trim()==='') continue;
     const marks = parseFloat(inp.value);
-    batch.set(db.collection('marks').doc(`${classId}_${subjectId}_${s.id}`), {
+    const docId = `${classId}_${subjectId}_${s.id}_sem${activeSemester}`;
+    batch.set(db.collection('marks').doc(docId), {
       studentId: s.id, subjectId, classId, marks, pass: marks>=passMarks,
+      semester: activeSemester,
       enteredBy: currentUser.uid, enteredAt: new Date()
     });
   }
@@ -1647,47 +1787,89 @@ function populateResultFilter() {
 
 async function loadResultView() {
   const classId = document.getElementById('resultClassFilter').value;
+  const semFilter = document.getElementById('resultSemFilter') ? document.getElementById('resultSemFilter').value : '1';
   const el = document.getElementById('resultViewContent');
   if (!classId) { el.innerHTML = '<div class="empty-state"><div class="emoji">📋</div><h3>Class select karein</h3></div>'; return; }
   el.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+
   const subjects = allSubjects.filter(s=>s.classId===classId);
   const students = allStudents.filter(s=>s.classId===classId).sort((a,b)=>String(a.rollNo).localeCompare(String(b.rollNo),undefined,{numeric:true}));
   const cls = allClasses.find(c=>c.id===classId);
   if (!students.length) { el.innerHTML = '<div class="empty-state"><div class="emoji">👨‍🎓</div><h3>Is class mein koi student nahi</h3></div>'; return; }
+
   const snap = await db.collection('marks').where('classId','==',classId).get();
-  const mm = {}; snap.docs.forEach(d=>{const dt=d.data(); mm[`${dt.studentId}_${dt.subjectId}`]=dt.marks;});
-  const results = students.map(s => {
-    let total=0, max=0, allPass=true;
-    const sr = subjects.map(sub => { const m=mm[`${s.id}_${sub.id}`]; const p=m!==undefined&&m>=sub.passMarks; if(!p)allPass=false; total+=m||0; max+=sub.totalMarks; return {sub,m,p}; });
-    const pct = max>0?Math.round((total/max)*100):0;
-    const grade = getGradeForPct(pct);
-    return {...s, sr, total, max, pct, grade, passed: allPass && subjects.length>0};
+  const mm1={}, mm2={};
+  snap.docs.forEach(d=>{
+    const dt=d.data();
+    if(dt.semester===2) mm2[`${dt.studentId}_${dt.subjectId}`]=dt.marks;
+    else mm1[`${dt.studentId}_${dt.subjectId}`]=dt.marks;
   });
-  const sorted = [...results].sort((a,b)=>b.total-a.total);
+
+  const isFinal=semFilter==='final'; const isSem2=semFilter==='2';
+  const activeMap=isSem2?mm2:mm1;
+  const w1=semesterSettings.sem1Weight/100; const w2=semesterSettings.sem2Weight/100;
+  const semLabel=isFinal?'🏆 Final Combined':semFilter==='1'?('📘 '+semesterSettings.sem1Name):('📗 '+semesterSettings.sem2Name);
+
+  const results=students.map(s=>{
+    let total=0,max=0,allPass=true,hasAnyMarks=false;
+    const sr=subjects.map(sub=>{
+      let m,p;
+      if(isFinal){
+        const m1=mm1[`${s.id}_${sub.id}`]; const m2=mm2[`${s.id}_${sub.id}`];
+        const hasDat=m1!==undefined||m2!==undefined;
+        m=hasDat?Math.round((m1||0)*w1+(m2||0)*w2):undefined;
+        p=hasDat&&m>=Math.round(sub.passMarks);
+        if(hasDat) hasAnyMarks=true;
+      } else {
+        m=activeMap[`${s.id}_${sub.id}`];
+        if(m!==undefined) hasAnyMarks=true;
+        p=m!==undefined&&m>=sub.passMarks;
+      }
+      if(m!==undefined&&!p) allPass=false;
+      total+=m||0; max+=sub.totalMarks;
+      return {sub,m,p};
+    });
+    const pct=max>0?Math.round((total/max)*100):0;
+    const grade=getGradeForPct(pct);
+    const passed=hasAnyMarks&&allPass&&pct>=failThreshold&&subjects.length>0;
+    return {...s,sr,total,max,pct,grade,passed};
+  });
+
+  const sorted=[...results].sort((a,b)=>b.total-a.total);
   sorted.forEach((r,i)=>r.pos=i+1);
-  let html = `<h3 style="margin-bottom:14px">${cls?cls.name:''} — Merged Result</h3><div class="table-wrapper"><table><thead><tr><th>Pos</th><th>Roll</th><th>Student</th><th>Father</th>`;
+
+  let html=`<h3 style="margin-bottom:14px">${cls?cls.name:''} — ${semLabel}</h3><div class="table-wrapper"><table><thead><tr><th>Pos</th><th>Roll</th><th>Student</th><th>Father</th>`;
   subjects.forEach(s=>html+=`<th>${s.name}<br><small style="font-weight:400;color:var(--text-muted)">(${s.totalMarks})</small></th>`);
-  html += `<th>Total</th><th>%</th><th>Grade</th><th>Result</th><th>Card</th></tr></thead><tbody>`;
-  results.forEach(r => {
-    html += `<tr><td><strong>#${r.pos}</strong></td><td>${r.rollNo}</td><td>${r.name}</td><td>${r.fatherName}</td>`;
+  html+=`<th>Total</th><th>%</th><th>Grade</th><th>Result</th><th>Card</th></tr></thead><tbody>`;
+  results.forEach(r=>{
+    html+=`<tr><td><strong>#${r.pos}</strong></td><td>${r.rollNo}</td><td>${r.name}</td><td>${r.fatherName}</td>`;
     r.sr.forEach(x=>html+=`<td style="font-weight:700;color:${x.m===undefined?'#9ca3af':x.p?'var(--success)':'var(--danger)'}">${x.m!==undefined?x.m:'—'}</td>`);
-    html += `<td><strong>${r.total}/${r.max}</strong></td><td>${r.pct}%</td>
+    html+=`<td><strong>${r.total}/${r.max}</strong></td><td>${r.pct}%</td>
       <td><span class="badge ${r.pct>=70?'badge-green':r.pct>=50?'badge-yellow':'badge-red'}">${r.grade}</span></td>
       <td><span class="badge ${r.passed?'badge-green':'badge-red'}">${r.passed?'✅ Pass':'❌ Fail'}</span></td>
-      <td><button class="btn btn-outline btn-sm" onclick="viewSingleResultCard('${r.id}','${classId}')" title="Result Card dekhein">🪪</button></td></tr>`;
+      <td><button class="btn btn-outline btn-sm" onclick="viewSingleResultCard('${r.id}','${classId}','${semFilter}')" title="Result Card dekhein">🪪</button></td></tr>`;
   });
-  el.innerHTML = html + '</tbody></table></div>';
+  el.innerHTML=html+'</tbody></table></div>';
 }
 
-async function viewSingleResultCard(studentId, classId) {
+async function viewSingleResultCard(studentId, classId, semFilter) {
   const student = allStudents.find(s => s.id === studentId);
   const subjects = allSubjects.filter(s => s.classId === classId);
   const cls = allClasses.find(c => c.id === classId);
   if (!student) return;
 
+  semFilter = semFilter || '1';
   const snap = await db.collection('marks').where('classId','==',classId).get();
-  const mm = {};
-  snap.docs.forEach(d => { const dt = d.data(); mm[`${dt.studentId}_${dt.subjectId}`] = dt.marks; });
+  const mm1={}, mm2={};
+  snap.docs.forEach(d => {
+    const dt=d.data();
+    if(dt.semester===2) mm2[`${dt.studentId}_${dt.subjectId}`]=dt.marks;
+    else mm1[`${dt.studentId}_${dt.subjectId}`]=dt.marks;
+  });
+  const isFinal=semFilter==='final'; const isSem2=semFilter==='2';
+  const activeMap=isSem2?mm2:mm1;
+  const w1=semesterSettings.sem1Weight/100; const w2=semesterSettings.sem2Weight/100;
+  const cardTitle=isFinal?'Final Combined Result':semFilter==='1'?semesterSettings.sem1Name:semesterSettings.sem2Name;
 
   const settingDoc = await db.collection('settings').doc('school').get();
   const schoolName = settingDoc.exists && settingDoc.data().name ? settingDoc.data().name : 'My School';
@@ -1696,36 +1878,75 @@ async function viewSingleResultCard(studentId, classId) {
   const logo = getStoredLogo();
   const logo2 = getStoredLogo2();
 
-  // Calculate position among all students in class
+  // Calculate position
   const classStudents = allStudents.filter(s => s.classId === classId);
   const totalStudents = classStudents.length;
   const studentTotals = classStudents.map(s => {
-    let t = 0;
-    subjects.forEach(sub => { t += (mm[`${s.id}_${sub.id}`] || 0); });
-    return { id: s.id, total: t };
-  }).sort((a, b) => b.total - a.total);
+    let t=0;
+    subjects.forEach(sub => {
+      if(isFinal) t+=Math.round((mm1[`${s.id}_${sub.id}`]||0)*w1+(mm2[`${s.id}_${sub.id}`]||0)*w2);
+      else t+=(activeMap[`${s.id}_${sub.id}`]||0);
+    });
+    return {id:s.id,total:t};
+  }).sort((a,b)=>b.total-a.total);
   const position = studentTotals.findIndex(s => s.id === studentId) + 1;
+  const positionSuffix = position===1?'st':position===2?'nd':position===3?'rd':'th';
 
-  const positionSuffix = position === 1 ? 'st' : position === 2 ? 'nd' : position === 3 ? 'rd' : 'th';
+  let totalObtained=0, totalMax=0, allPass=true, subjectRows='', tableHeader='';
 
-  let totalObtained = 0, totalMax = 0, allPass = true;
-  let subjectRows = '';
-  subjects.forEach(sub => {
-    const obtained = mm[`${student.id}_${sub.id}`];
-    const pass = obtained !== undefined && obtained >= sub.passMarks;
-    if (!pass) allPass = false;
-    totalObtained += obtained || 0;
-    totalMax += sub.totalMarks;
-    const resultTxt = obtained !== undefined ? (pass ? 'Pass' : 'Fail') : '—';
-    const resultColor = obtained !== undefined ? (pass ? '#057a55' : '#c81e1e') : '#6b7280';
-    subjectRows += `<tr>
-      <td style="padding:7px 10px;border:1px solid #e0e0e0">${sub.name}</td>
-      <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${sub.totalMarks}</td>
-      <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${sub.passMarks}</td>
-      <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700">${obtained !== undefined ? obtained : '—'}</td>
-      <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700;color:${resultColor}">${resultTxt}</td>
+  if(isFinal){
+    tableHeader=`<tr style="background:#1a56db;color:white">
+      <th style="padding:8px 10px;text-align:left;border:1px solid #1a56db">Subject</th>
+      <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">${semesterSettings.sem1Name}</th>
+      <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">${semesterSettings.sem2Name}</th>
+      <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Final</th>
+      <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Result</th></tr>`;
+    let sem1Total=0,sem2Total=0,finalTotal=0;
+    subjects.forEach(sub=>{
+      const m1=mm1[`${student.id}_${sub.id}`]; const m2=mm2[`${student.id}_${sub.id}`];
+      const obtained=(m1!==undefined||m2!==undefined)?Math.round((m1||0)*w1+(m2||0)*w2):undefined;
+      const pass=obtained!==undefined&&obtained>=Math.round(sub.passMarks);
+      if(!pass&&obtained!==undefined) allPass=false;
+      totalObtained+=obtained||0; totalMax+=sub.totalMarks;
+      sem1Total+=m1||0; sem2Total+=m2||0; finalTotal+=obtained||0;
+      const rc=obtained!==undefined?(pass?'#057a55':'#c81e1e'):'#6b7280';
+      subjectRows+=`<tr>
+        <td style="padding:7px 10px;border:1px solid #e0e0e0">${sub.name}</td>
+        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${m1!==undefined?m1:'—'}</td>
+        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${m2!==undefined?m2:'—'}</td>
+        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700">${obtained!==undefined?obtained:'—'}</td>
+        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700;color:${rc}">${obtained!==undefined?(pass?'Pass':'Fail'):'—'}</td>
+      </tr>`;
+    });
+    subjectRows+=`<tr style="background:#f0f4ff;font-weight:800">
+      <td style="padding:8px 10px;border:1px solid #c7d7f9">Total</td>
+      <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center">${sem1Total}</td>
+      <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center">${sem2Total}</td>
+      <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center;color:#1a56db">${finalTotal}</td>
+      <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center">—</td>
     </tr>`;
-  });
+  } else {
+    tableHeader=`<tr style="background:#1a56db;color:white">
+      <th style="padding:8px 10px;text-align:left;border:1px solid #1a56db">Subject</th>
+      <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Total</th>
+      <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Pass Marks</th>
+      <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Obtained</th>
+      <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Result</th></tr>`;
+    subjects.forEach(sub=>{
+      const obtained=activeMap[`${student.id}_${sub.id}`];
+      const pass=obtained!==undefined&&obtained>=sub.passMarks;
+      if(!pass&&obtained!==undefined) allPass=false;
+      totalObtained+=obtained||0; totalMax+=sub.totalMarks;
+      const rc=obtained!==undefined?(pass?'#057a55':'#c81e1e'):'#6b7280';
+      subjectRows+=`<tr>
+        <td style="padding:7px 10px;border:1px solid #e0e0e0">${sub.name}</td>
+        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${sub.totalMarks}</td>
+        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${sub.passMarks}</td>
+        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700">${obtained!==undefined?obtained:'—'}</td>
+        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700;color:${rc}">${obtained!==undefined?(pass?'Pass':'Fail'):'—'}</td>
+      </tr>`;
+    });
+  }
 
   const pct = totalMax > 0 ? Math.round((totalObtained / totalMax) * 100) : 0;
   const grade = getGradeForPct(pct);
@@ -1740,7 +1961,7 @@ async function viewSingleResultCard(studentId, classId) {
         </div>
         <div style="flex:1;text-align:center">
           <div style="font-size:20px;font-weight:900;color:#0f172a;line-height:1.2">${schoolName}</div>
-          <div style="font-size:13px;font-weight:600;color:#1a56db;margin-top:4px;letter-spacing:1px">${examName}</div>
+          <div style="font-size:13px;font-weight:600;color:#1a56db;margin-top:4px;letter-spacing:1px">${examName} — ${cardTitle}</div>
           <div style="font-size:12px;color:#6b7280;margin-top:2px">Date: ${today}</div>
         </div>
         ${logo ? `<img src="${logo}" style="width:80px;height:80px;object-fit:contain;border-radius:8px;flex-shrink:0">` : '<div style="width:80px;height:80px;background:#e8f0fe;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:36px;flex-shrink:0">🏫</div>'}
@@ -1751,15 +1972,7 @@ async function viewSingleResultCard(studentId, classId) {
         <div><div style="font-size:11px;color:#6b7280;font-weight:600">Roll No / Class / Section</div><div style="font-weight:700;font-size:14px">${student.rollNo} / ${cls ? cls.name : '—'} / ${cls && cls.section ? cls.section : '—'}</div></div>
       </div>
       <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:14px">
-        <thead>
-          <tr style="background:#1a56db;color:white">
-            <th style="padding:8px 10px;text-align:left;border:1px solid #1a56db">Subject</th>
-            <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Total</th>
-            <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Pass Marks</th>
-            <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Obtained</th>
-            <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Result</th>
-          </tr>
-        </thead>
+        <thead>${tableHeader}</thead>
         <tbody>${subjectRows}</tbody>
       </table>
       <div style="display:flex;justify-content:space-between;align-items:center;background:#f0f4ff;padding:12px 16px;border-radius:8px;flex-wrap:wrap;gap:8px">
@@ -1768,6 +1981,7 @@ async function viewSingleResultCard(studentId, classId) {
         <div style="font-size:13px"><strong>Grade:</strong> <span style="font-weight:900;color:#1a56db">${grade}</span></div>
         <div style="font-size:14px;font-weight:800;color:${overallColor}">${overallPass ? '✅ PASS' : '❌ FAIL'}</div>
       </div>
+      ${isFinal ? `<div style="text-align:center;font-size:12px;color:#6b7280;margin-top:6px">Weightage: <strong>${semesterSettings.sem1Name} = ${semesterSettings.sem1Weight}%</strong> &nbsp;|&nbsp; <strong>${semesterSettings.sem2Name} = ${semesterSettings.sem2Weight}%</strong></div>` : ''}
       <!-- Position Banner -->
       <div style="margin-top:12px;background:linear-gradient(135deg,#1a56db,#7c3aed);border-radius:10px;padding:12px 16px;text-align:center;color:white">
         <div style="font-size:13px;opacity:0.85">Class Position</div>
