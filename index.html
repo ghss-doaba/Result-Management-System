@@ -1063,7 +1063,7 @@ async function loadResultCardPreview() {
   if (!students.length) { el.innerHTML = '<div class="alert alert-warning">Is class mein koi student nahi</div>'; return; }
   if (!subjects.length) { el.innerHTML = '<div class="alert alert-warning">Is class mein koi subject nahi</div>'; return; }
 
-  semFilter = semFilter || '1';
+  const semFilter = document.getElementById('resultCardSemFilter') ? document.getElementById('resultCardSemFilter').value : '1';
   const snap = await db.collection('marks').where('classId','==',classId).get();
   const mm1={}, mm2={};
   snap.docs.forEach(d => {
@@ -1088,7 +1088,11 @@ async function loadResultCardPreview() {
   const studentTotalsMap = {};
   students.forEach(s => {
     let t = 0;
-    subjects.forEach(sub => { t += (mm[`${s.id}_${sub.id}`] || 0); });
+    if(isFinal){
+      subjects.forEach(sub => { t += Math.round((mm1[`${s.id}_${sub.id}`]||0)*w1 + (mm2[`${s.id}_${sub.id}`]||0)*w2); });
+    } else {
+      subjects.forEach(sub => { t += (activeMap[`${s.id}_${sub.id}`] || 0); });
+    }
     studentTotalsMap[s.id] = t;
   });
   const sortedByMarks = [...students].sort((a, b) => studentTotalsMap[b.id] - studentTotalsMap[a.id]);
@@ -1107,28 +1111,47 @@ async function loadResultCardPreview() {
 
   students.forEach((student, idx) => {
     const studentPos = positionMap[student.id] || { pos: '—', suffix: '' };
-    let totalObtained = 0, totalMax = 0, allPass = true;
+    let totalObtained = 0, totalMax = 0, allPass = true, hasAllMarks = true;
     let subjectRows = '';
     subjects.forEach(sub => {
-      const obtained = mm[`${student.id}_${sub.id}`];
+      let obtained;
+      if(isFinal){
+        const m1=mm1[`${student.id}_${sub.id}`]; const m2=mm2[`${student.id}_${sub.id}`];
+        obtained=(m1!==undefined||m2!==undefined)?Math.round((m1||0)*w1+(m2||0)*w2):undefined;
+      } else {
+        obtained = activeMap[`${student.id}_${sub.id}`];
+      }
+      if (obtained === undefined) { hasAllMarks = false; allPass = false; }
       const pass = obtained !== undefined && obtained >= sub.passMarks;
-      if (!pass) allPass = false;
+      if (obtained !== undefined && !pass) allPass = false;
       totalObtained += obtained || 0;
       totalMax += sub.totalMarks;
       const resultTxt = obtained !== undefined ? (pass ? 'Pass' : 'Fail') : '—';
       const resultColor = obtained !== undefined ? (pass ? '#057a55' : '#c81e1e') : '#6b7280';
-      subjectRows += `<tr>
-        <td style="padding:7px 10px;border:1px solid #e0e0e0">${sub.name}</td>
-        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${sub.totalMarks}</td>
-        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${sub.passMarks}</td>
-        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700">${obtained !== undefined ? obtained : '—'}</td>
-        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700;color:${resultColor}">${resultTxt}</td>
-      </tr>`;
+      if(isFinal){
+        const m1=mm1[`${student.id}_${sub.id}`]; const m2=mm2[`${student.id}_${sub.id}`];
+        subjectRows += `<tr>
+          <td style="padding:7px 10px;border:1px solid #e0e0e0">${sub.name}</td>
+          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:600">${sub.totalMarks}</td>
+          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${m1!==undefined?m1:'—'}</td>
+          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${m2!==undefined?m2:'—'}</td>
+          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700">${obtained !== undefined ? obtained : '—'}</td>
+          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700;color:${resultColor}">${resultTxt}</td>
+        </tr>`;
+      } else {
+        subjectRows += `<tr>
+          <td style="padding:7px 10px;border:1px solid #e0e0e0">${sub.name}</td>
+          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${sub.totalMarks}</td>
+          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${sub.passMarks}</td>
+          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700">${obtained !== undefined ? obtained : '—'}</td>
+          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700;color:${resultColor}">${resultTxt}</td>
+        </tr>`;
+      }
     });
 
     const pct = totalMax > 0 ? Math.round((totalObtained / totalMax) * 100) : 0;
     const grade = getGradeForPct(pct);
-    const overallPass = allPass && subjects.length > 0;
+    const overallPass = hasAllMarks && allPass && subjects.length > 0 && pct >= failThreshold;
     const overallColor = overallPass ? '#057a55' : '#c81e1e';
 
     html += `<div class="result-card" style="background:white;border:2px solid #1a56db;border-radius:12px;padding:24px;margin-bottom:20px;max-width:720px;page-break-after:always">
@@ -1153,13 +1176,20 @@ async function loadResultCardPreview() {
       <!-- Marks Table -->
       <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:14px">
         <thead>
-          <tr style="background:#1a56db;color:white">
+          ${isFinal ? `<tr style="background:#1a56db;color:white">
+            <th style="padding:8px 10px;text-align:left;border:1px solid #1a56db">Subject</th>
+            <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Total Marks</th>
+            <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">${semesterSettings.sem1Name}</th>
+            <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">${semesterSettings.sem2Name}</th>
+            <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Final</th>
+            <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Result</th>
+          </tr>` : `<tr style="background:#1a56db;color:white">
             <th style="padding:8px 10px;text-align:left;border:1px solid #1a56db">Subject</th>
             <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Total</th>
             <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Pass Marks</th>
             <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Obtained</th>
             <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Result</th>
-          </tr>
+          </tr>`}
         </thead>
         <tbody>${subjectRows}</tbody>
       </table>
@@ -1838,7 +1868,10 @@ async function loadResultView() {
   const sorted=[...results].sort((a,b)=>b.total-a.total);
   sorted.forEach((r,i)=>r.pos=i+1);
 
-  let html=`<h3 style="margin-bottom:14px">${cls?cls.name:''} — ${semLabel}</h3><div class="table-wrapper"><table><thead><tr><th>Pos</th><th>Roll</th><th>Student</th><th>Father</th>`;
+  let html=`<div class="flex-between" style="margin-bottom:14px">
+    <h3>${cls?cls.name:''} — ${semLabel}</h3>
+    <button class="btn btn-success btn-sm" onclick="downloadResultExcel('${classId}','${semFilter}')">📥 Excel Download</button>
+  </div><div class="table-wrapper"><table><thead><tr><th>Pos</th><th>Roll</th><th>Student</th><th>Father</th>`;
   subjects.forEach(s=>html+=`<th>${s.name}<br><small style="font-weight:400;color:var(--text-muted)">(${s.totalMarks})</small></th>`);
   html+=`<th>Total</th><th>%</th><th>Grade</th><th>Result</th><th>Card</th></tr></thead><tbody>`;
   results.forEach(r=>{
@@ -1850,6 +1883,120 @@ async function loadResultView() {
       <td><button class="btn btn-outline btn-sm" onclick="viewSingleResultCard('${r.id}','${classId}','${semFilter}')" title="Result Card dekhein">🪪</button></td></tr>`;
   });
   el.innerHTML=html+'</tbody></table></div>';
+}
+
+async function downloadResultExcel(classId, semFilter) {
+  const cls = allClasses.find(c => c.id === classId);
+  const subjects = allSubjects.filter(s => s.classId === classId);
+  const students = allStudents.filter(s => s.classId === classId).sort((a,b) => String(a.rollNo).localeCompare(String(b.rollNo), undefined, {numeric:true}));
+
+  const snap = await db.collection('marks').where('classId','==',classId).get();
+  const mm1={}, mm2={};
+  snap.docs.forEach(d => {
+    const dt = d.data();
+    if(dt.semester===2) mm2[`${dt.studentId}_${dt.subjectId}`] = dt.marks;
+    else mm1[`${dt.studentId}_${dt.subjectId}`] = dt.marks;
+  });
+
+  const isFinal = semFilter === 'final';
+  const isSem2  = semFilter === '2';
+  const activeMap = isSem2 ? mm2 : mm1;
+  const w1 = semesterSettings.sem1Weight / 100;
+  const w2 = semesterSettings.sem2Weight / 100;
+
+  const semLabel = isFinal ? 'Final Combined'
+    : semFilter==='1' ? semesterSettings.sem1Name
+    : semesterSettings.sem2Name;
+
+  // ---- Build rows ----
+  const results = students.map(s => {
+    let total=0, max=0, allPass=true, hasAnyMarks=false;
+    const subMarks = subjects.map(sub => {
+      let m;
+      if(isFinal){
+        const m1=mm1[`${s.id}_${sub.id}`]; const m2=mm2[`${s.id}_${sub.id}`];
+        const hasDat = m1!==undefined || m2!==undefined;
+        m = hasDat ? Math.round((m1||0)*w1 + (m2||0)*w2) : undefined;
+        if(hasDat) hasAnyMarks = true;
+      } else {
+        m = activeMap[`${s.id}_${sub.id}`];
+        if(m !== undefined) hasAnyMarks = true;
+      }
+      if(m!==undefined && m < sub.passMarks) allPass = false;
+      total += m||0; max += sub.totalMarks;
+      return m;
+    });
+    const pct = max>0 ? Math.round((total/max)*100) : 0;
+    const grade = getGradeForPct(pct);
+    const passed = hasAnyMarks && allPass && pct >= failThreshold && subjects.length > 0;
+    return { ...s, subMarks, total, max, pct, grade, passed };
+  });
+
+  // Sort by total desc and assign positions
+  const sorted = [...results].sort((a,b) => b.total - a.total);
+  sorted.forEach((r,i) => r.pos = i+1);
+  // Re-apply position back to results by id
+  const posMap = {};
+  sorted.forEach(r => posMap[r.id] = r.pos);
+  results.forEach(r => r.pos = posMap[r.id]);
+
+  // ---- Build Excel using SheetJS ----
+  const wb = XLSX.utils.book_new();
+
+  // Header row 1: school/class/sem info (merged later via style — plain text here)
+  const settingDoc = await db.collection('settings').doc('school').get();
+  const schoolName = settingDoc.exists && settingDoc.data().name ? settingDoc.data().name : 'School';
+  const examName   = settingDoc.exists && settingDoc.data().examName ? settingDoc.data().examName : '';
+
+  // Build array of arrays
+  const aoa = [];
+
+  // Title rows
+  aoa.push([schoolName]);
+  aoa.push([examName ? examName + ' — ' + semLabel : semLabel]);
+  aoa.push(['Class: ' + (cls ? cls.name + (cls.section ? ' - '+cls.section : '') : '')]);
+  aoa.push([]); // blank row
+
+  // Column headers
+  const subjectHeaders = [];
+  subjects.forEach(sub => subjectHeaders.push(`${sub.name}\n(${sub.totalMarks})`));
+  aoa.push(['Pos', 'Roll No', 'Student Name', 'Father Name', ...subjectHeaders, 'Total', 'Max Marks', '%', 'Grade', 'Result']);
+
+  // Data rows
+  results.forEach(r => {
+    const row = [
+      r.pos,
+      r.rollNo,
+      r.name,
+      r.fatherName,
+      ...r.subMarks.map(m => m !== undefined ? m : '—'),
+      r.total,
+      r.max,
+      r.pct + '%',
+      r.grade,
+      r.passed ? 'PASS' : 'FAIL'
+    ];
+    aoa.push(row);
+  });
+
+  // Totals row at bottom
+  const totalRow = ['', '', '', 'Total Marks'];
+  subjects.forEach(sub => totalRow.push(sub.totalMarks));
+  totalRow.push('', '', '', '', '');
+  aoa.push(totalRow);
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+  // Column widths
+  const colWidths = [6, 9, 22, 22, ...subjects.map(() => 14), 10, 12, 8, 8, 10];
+  ws['!cols'] = colWidths.map(w => ({ wch: w }));
+
+  XLSX.utils.book_append_sheet(wb, ws, semLabel.substring(0,31));
+
+  // Download
+  const className = cls ? cls.name + (cls.section ? '_'+cls.section : '') : 'Class';
+  const fileName = `${className}_${semLabel}_Result.xlsx`.replace(/\s+/g,'_');
+  XLSX.writeFile(wb, fileName);
 }
 
 async function viewSingleResultCard(studentId, classId, semFilter) {
@@ -1892,11 +2039,12 @@ async function viewSingleResultCard(studentId, classId, semFilter) {
   const position = studentTotals.findIndex(s => s.id === studentId) + 1;
   const positionSuffix = position===1?'st':position===2?'nd':position===3?'rd':'th';
 
-  let totalObtained=0, totalMax=0, allPass=true, subjectRows='', tableHeader='';
+  let totalObtained=0, totalMax=0, allPass=true, hasAllMarks=true, subjectRows='', tableHeader='';
 
   if(isFinal){
     tableHeader=`<tr style="background:#1a56db;color:white">
       <th style="padding:8px 10px;text-align:left;border:1px solid #1a56db">Subject</th>
+      <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Total Marks</th>
       <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">${semesterSettings.sem1Name}</th>
       <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">${semesterSettings.sem2Name}</th>
       <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Final</th>
@@ -1905,13 +2053,15 @@ async function viewSingleResultCard(studentId, classId, semFilter) {
     subjects.forEach(sub=>{
       const m1=mm1[`${student.id}_${sub.id}`]; const m2=mm2[`${student.id}_${sub.id}`];
       const obtained=(m1!==undefined||m2!==undefined)?Math.round((m1||0)*w1+(m2||0)*w2):undefined;
+      if(obtained===undefined){hasAllMarks=false; allPass=false;}
       const pass=obtained!==undefined&&obtained>=Math.round(sub.passMarks);
-      if(!pass&&obtained!==undefined) allPass=false;
+      if(obtained!==undefined&&!pass) allPass=false;
       totalObtained+=obtained||0; totalMax+=sub.totalMarks;
       sem1Total+=m1||0; sem2Total+=m2||0; finalTotal+=obtained||0;
       const rc=obtained!==undefined?(pass?'#057a55':'#c81e1e'):'#6b7280';
       subjectRows+=`<tr>
         <td style="padding:7px 10px;border:1px solid #e0e0e0">${sub.name}</td>
+        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:600">${sub.totalMarks}</td>
         <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${m1!==undefined?m1:'—'}</td>
         <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${m2!==undefined?m2:'—'}</td>
         <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700">${obtained!==undefined?obtained:'—'}</td>
@@ -1920,6 +2070,7 @@ async function viewSingleResultCard(studentId, classId, semFilter) {
     });
     subjectRows+=`<tr style="background:#f0f4ff;font-weight:800">
       <td style="padding:8px 10px;border:1px solid #c7d7f9">Total</td>
+      <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center">${totalMax}</td>
       <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center">${sem1Total}</td>
       <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center">${sem2Total}</td>
       <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center;color:#1a56db">${finalTotal}</td>
@@ -1934,8 +2085,9 @@ async function viewSingleResultCard(studentId, classId, semFilter) {
       <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Result</th></tr>`;
     subjects.forEach(sub=>{
       const obtained=activeMap[`${student.id}_${sub.id}`];
+      if(obtained===undefined){hasAllMarks=false; allPass=false;}
       const pass=obtained!==undefined&&obtained>=sub.passMarks;
-      if(!pass&&obtained!==undefined) allPass=false;
+      if(obtained!==undefined&&!pass) allPass=false;
       totalObtained+=obtained||0; totalMax+=sub.totalMarks;
       const rc=obtained!==undefined?(pass?'#057a55':'#c81e1e'):'#6b7280';
       subjectRows+=`<tr>
@@ -1950,7 +2102,7 @@ async function viewSingleResultCard(studentId, classId, semFilter) {
 
   const pct = totalMax > 0 ? Math.round((totalObtained / totalMax) * 100) : 0;
   const grade = getGradeForPct(pct);
-  const overallPass = allPass && subjects.length > 0;
+  const overallPass = hasAllMarks && allPass && subjects.length > 0 && pct >= failThreshold;
   const overallColor = overallPass ? '#057a55' : '#c81e1e';
 
   const cardHTML = `
