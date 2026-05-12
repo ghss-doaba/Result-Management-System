@@ -302,7 +302,7 @@ label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
   <div class="login-card">
     <div class="login-logo-wrap">
       <div class="login-logo">🏫</div>
-      <div class="login-school-name" id="loginSchoolName">Loading...</div>
+      <div class="login-school-name" id="loginSchoolName">Result Management System</div>
       <div class="login-subtitle">Result Management System</div>
     </div>
 
@@ -384,6 +384,7 @@ label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
       <div class="nav-section-title">My Portal</div>
       <div class="nav-item" onclick="showPage('teacherMarks',this)"><span class="icon">✏️</span> Marks Enter Karein</div>
       <div class="nav-item" onclick="showPage('teacherView',this)"><span class="icon">📋</span> Entered Marks</div>
+      <div class="nav-item" onclick="showPage('teacherPdf',this)"><span class="icon">📄</span> PDF Download</div>
       <div class="nav-item" onclick="showPage('changePassword',this)"><span class="icon">🔑</span> Password Change</div>
     </div>
     </div><!-- end sidebar-nav-wrap -->
@@ -500,13 +501,20 @@ label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
 
     <!-- PDF REPORTS -->
     <div id="page-reports" class="page">
-      <div class="page-header"><h1>PDF Reports</h1><p>Subject-wise PDF download karein</p></div>
+      <div class="page-header"><h1>📄 PDF Reports</h1><p>Subject-wise PDF download karein</p></div>
       <div class="card">
         <div class="form-row mb-4">
           <div class="form-group" style="margin:0">
             <label>Class</label>
             <select id="pdfClassFilter" onchange="loadPdfSubjects()">
               <option value="">-- Class chunein --</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin:0">
+            <label>Semester</label>
+            <select id="pdfSemFilter" onchange="loadPdfSubjects()">
+              <option value="1">Semester 1</option>
+              <option value="2">Semester 2</option>
             </select>
           </div>
           <div class="form-group" style="margin:0">
@@ -700,6 +708,27 @@ label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
       <div id="teacherViewContent"><div class="loading"><div class="spinner"></div></div></div>
     </div>
 
+    <!-- TEACHER PDF DOWNLOAD -->
+    <div id="page-teacherPdf" class="page">
+      <div class="page-header"><h1>📄 PDF Download</h1><p>Apne subjects ka PDF report download karein</p></div>
+      <div class="card">
+        <div class="form-row mb-4">
+          <div class="form-group" style="margin:0">
+            <label>Semester</label>
+            <select id="teacherPdfSemFilter">
+              <option value="1">Semester 1</option>
+              <option value="2">Semester 2</option>
+            </select>
+          </div>
+        </div>
+        <button class="btn btn-pdf" onclick="generateTeacherPDF()">📄 PDF Download karein</button>
+      </div>
+      <div class="card">
+        <div class="card-title">📥 Mere Subjects</div>
+        <div id="teacherPdfList"><div class="empty-state"><div class="emoji">📄</div><h3>Loading...</h3></div></div>
+      </div>
+    </div>
+
   </div><!-- end main-content -->
 </div><!-- end app -->
 
@@ -724,9 +753,10 @@ label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
   <div class="modal">
     <div class="modal-title">📚 Subject Add Karein <button class="modal-close" onclick="closeModal('subjectModal')">✕</button></div>
     <div class="form-group"><label>Subject Name *</label><input type="text" id="subjectNameInput" placeholder="e.g. Mathematics, Urdu, English"></div>
+    <div class="form-group"><label>Class *</label><select id="subjectClassInput"><option value="">-- Class chunein --</option></select></div>
     <div class="form-row">
-      <div class="form-group"><label>Class *</label><select id="subjectClassInput"><option value="">-- Class chunein --</option></select></div>
-      <div class="form-group"><label>Total Marks *</label><input type="number" id="subjectTotalMarksInput" placeholder="100" min="1"></div>
+      <div class="form-group"><label>Semester 1 — Total Marks *</label><input type="number" id="subjectSem1TotalInput" placeholder="e.g. 45" min="1"></div>
+      <div class="form-group"><label>Semester 2 — Total Marks *</label><input type="number" id="subjectSem2TotalInput" placeholder="e.g. 55" min="1"></div>
     </div>
     <div class="form-group"><label>Pass Marks *</label><input type="number" id="subjectPassMarksInput" placeholder="33" min="1"></div>
     <input type="hidden" id="editSubjectId">
@@ -781,6 +811,7 @@ label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
     </div>
   </div>
 </div>
+
 
 <script>
 // ===== FIREBASE CONFIG =====
@@ -1089,17 +1120,28 @@ async function loadResultCardPreview() {
   students.forEach(s => {
     let t = 0;
     if(isFinal){
-      subjects.forEach(sub => { t += Math.round((mm1[`${s.id}_${sub.id}`]||0)*w1 + (mm2[`${s.id}_${sub.id}`]||0)*w2); });
+      subjects.forEach(sub => {
+        const v1 = typeof mm1[`${s.id}_${sub.id}`]==='number' ? mm1[`${s.id}_${sub.id}`] : 0;
+        const v2 = typeof mm2[`${s.id}_${sub.id}`]==='number' ? mm2[`${s.id}_${sub.id}`] : 0;
+        const s1t = sub.sem1Total||sub.totalMarks; const s2t = sub.sem2Total||sub.totalMarks;
+        t += parseFloat(((v1/s1t)*w1*100 + (v2/s2t)*w2*100).toFixed(2));
+      });
     } else {
-      subjects.forEach(sub => { t += (activeMap[`${s.id}_${sub.id}`] || 0); });
+      subjects.forEach(sub => {
+        const v = activeMap[`${s.id}_${sub.id}`];
+        t += (typeof v==='number' ? v : 0);
+      });
     }
     studentTotalsMap[s.id] = t;
   });
   const sortedByMarks = [...students].sort((a, b) => studentTotalsMap[b.id] - studentTotalsMap[a.id]);
   const positionMap = {};
   sortedByMarks.forEach((s, i) => {
-    const suffix = i === 0 ? 'st' : i === 1 ? 'nd' : i === 2 ? 'rd' : 'th';
-    positionMap[s.id] = { pos: i + 1, suffix };
+    const prevPos = i > 0 ? positionMap[sortedByMarks[i-1].id].pos : null;
+    const prevTotal = i > 0 ? studentTotalsMap[sortedByMarks[i-1].id] : null;
+    const pos = (i > 0 && studentTotalsMap[s.id] === prevTotal) ? prevPos : i + 1;
+    const suffix = pos===1?'st':pos===2?'nd':pos===3?'rd':'th';
+    positionMap[s.id] = { pos, suffix };
   });
 
   let html = `<div style="margin-top:16px">
@@ -1111,48 +1153,92 @@ async function loadResultCardPreview() {
 
   students.forEach((student, idx) => {
     const studentPos = positionMap[student.id] || { pos: '—', suffix: '' };
-    let totalObtained = 0, totalMax = 0, allPass = true, hasAllMarks = true;
+    let totalObtained = 0, totalMax = 0;
     let subjectRows = '';
+    let wtSum1=0, wtSum2=0, sem1MaxSum=0, sem2MaxSum=0;
     subjects.forEach(sub => {
-      let obtained;
       if(isFinal){
         const m1=mm1[`${student.id}_${sub.id}`]; const m2=mm2[`${student.id}_${sub.id}`];
-        obtained=(m1!==undefined||m2!==undefined)?Math.round((m1||0)*w1+(m2||0)*w2):undefined;
-      } else {
-        obtained = activeMap[`${student.id}_${sub.id}`];
-      }
-      if (obtained === undefined) { hasAllMarks = false; allPass = false; }
-      const pass = obtained !== undefined && obtained >= sub.passMarks;
-      if (obtained !== undefined && !pass) allPass = false;
-      totalObtained += obtained || 0;
-      totalMax += sub.totalMarks;
-      const resultTxt = obtained !== undefined ? (pass ? 'Pass' : 'Fail') : '—';
-      const resultColor = obtained !== undefined ? (pass ? '#057a55' : '#c81e1e') : '#6b7280';
-      if(isFinal){
-        const m1=mm1[`${student.id}_${sub.id}`]; const m2=mm2[`${student.id}_${sub.id}`];
+        const a1 = m1==='AB', a2 = m2==='AB';
+        const s1tot = sub.sem1Total||sub.totalMarks;
+        const s2tot = sub.sem2Total||sub.totalMarks;
+        // Weighted = (Obtained/SemTotal)*Weightage — Absent or missing = 0
+        const wt1 = a1 ? 0 : (typeof m1==='number' ? parseFloat(((m1/s1tot)*w1*100).toFixed(2)) : 0);
+        const wt2 = a2 ? 0 : (typeof m2==='number' ? parseFloat(((m2/s2tot)*w2*100).toFixed(2)) : 0);
+        const finalTotal = parseFloat((wt1+wt2).toFixed(2));
+        const abSpan = '<span style="color:#dc2626;font-weight:900;font-size:13px">A</span>';
+        const d1obt = a1 ? abSpan : (m1!==undefined?m1:'—');
+        const d2obt = a2 ? abSpan : (m2!==undefined?m2:'—');
+        // Weighted display: if absent show A, if 0 (no marks) show 0.00
+        const d1wt = a1 ? abSpan : wt1.toFixed(2);
+        const d2wt = a2 ? abSpan : wt2.toFixed(2);
+        // Final Total cell: show A only if BOTH semesters absent, else show numeric
+        const bothAbsent = a1 && a2;
+        const pass = finalTotal >= failThreshold;
+        const ftColor = bothAbsent ? '#dc2626' : (pass ? '#057a55' : '#c81e1e');
+        const ftDisplay = bothAbsent ? abSpan : finalTotal.toFixed(2);
         subjectRows += `<tr>
           <td style="padding:7px 10px;border:1px solid #e0e0e0">${sub.name}</td>
-          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:600">${sub.totalMarks}</td>
-          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${m1!==undefined?m1:'—'}</td>
-          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${m2!==undefined?m2:'—'}</td>
-          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700">${obtained !== undefined ? obtained : '—'}</td>
-          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700;color:${resultColor}">${resultTxt}</td>
+          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;color:#374151">${s1tot}</td>
+          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${d1obt}</td>
+          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;color:#1a56db;font-weight:700">${d1wt}</td>
+          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;color:#374151">${s2tot}</td>
+          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${d2obt}</td>
+          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;color:#7c3aed;font-weight:700">${d2wt}</td>
+          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:800;color:${ftColor}">${ftDisplay}</td>
         </tr>`;
+        // Accumulate — totalMax fixed at subjects.length*100 (set after loop)
+        totalObtained += finalTotal;
+        wtSum1 += wt1; wtSum2 += wt2;
+        sem1MaxSum += s1tot; sem2MaxSum += s2tot;
       } else {
+        // Sem1 or Sem2 only
+        const rawVal = activeMap[`${student.id}_${sub.id}`];
+        const isAbs = rawVal === 'AB';
+        const obtained = isAbs ? undefined : rawVal;
+        const semTotal = isSem2 ? (sub.sem2Total||sub.totalMarks) : (sub.sem1Total||sub.totalMarks);
+        const pass2 = !isAbs && typeof obtained==='number' && obtained>=sub.passMarks;
+        totalObtained += (typeof obtained==='number') ? obtained : 0;
+        totalMax += semTotal;
+        const abBadge = '<span style="background:#dc2626;color:white;padding:2px 8px;border-radius:5px;font-size:12px;font-weight:700">Absent</span>';
+        const dispObt = isAbs ? abBadge : (obtained!==undefined?obtained:'—');
+        const dispRes = isAbs ? abBadge : (obtained!==undefined?(pass2?'Pass':'Fail'):'—');
         subjectRows += `<tr>
           <td style="padding:7px 10px;border:1px solid #e0e0e0">${sub.name}</td>
-          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${sub.totalMarks}</td>
+          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${semTotal}</td>
           <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${sub.passMarks}</td>
-          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700">${obtained !== undefined ? obtained : '—'}</td>
-          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700;color:${resultColor}">${resultTxt}</td>
+          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700">${dispObt}</td>
+          <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700;color:${isAbs?'#dc2626':pass2?'#057a55':'#c81e1e'}">${dispRes}</td>
         </tr>`;
       }
     });
 
-    const pct = totalMax > 0 ? Math.round((totalObtained / totalMax) * 100) : 0;
+    // Fix totalMax — always subjects*100 for isFinal regardless of loop
+    if(isFinal) totalMax = subjects.length * 100;
+
+    // Add Total footer row for isFinal
+    if(isFinal){
+      const abSpanF = '';
+      subjectRows += `<tr style="background:#f0f4ff;font-weight:800;font-size:13px">
+        <td style="padding:8px 10px;border:1px solid #c7d7f9">Total</td>
+        <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center;color:#374151">${sem1MaxSum}</td>
+        <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center">—</td>
+        <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center;color:#1a56db">${wtSum1.toFixed(2)}</td>
+        <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center;color:#374151">${sem2MaxSum}</td>
+        <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center">—</td>
+        <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center;color:#7c3aed">${wtSum2.toFixed(2)}</td>
+        <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center;color:#057a55">${totalObtained.toFixed(2)}</td>
+      </tr>`;
+    }
+
+    const pct = totalMax > 0
+      ? (isFinal ? parseFloat((totalObtained / totalMax * 100).toFixed(1)) : Math.round((totalObtained / totalMax) * 100))
+      : 0;
     const grade = getGradeForPct(pct);
-    const overallPass = hasAllMarks && allPass && subjects.length > 0 && pct >= failThreshold;
+    const overallPass = subjects.length > 0 && pct >= failThreshold;
     const overallColor = overallPass ? '#057a55' : '#c81e1e';
+    const finalTotalDisplay = isFinal ? totalObtained.toFixed(2) : totalObtained;
+    const totalMaxDisplay = totalMax;
 
     html += `<div class="result-card" style="background:white;border:2px solid #1a56db;border-radius:12px;padding:24px;margin-bottom:20px;max-width:720px;page-break-after:always">
       <!-- Header -->
@@ -1162,8 +1248,7 @@ async function loadResultCardPreview() {
         </div>
         <div style="flex:1;text-align:center">
           <div style="font-size:20px;font-weight:900;color:#0f172a;line-height:1.2">${schoolName}</div>
-          <div style="font-size:13px;font-weight:600;color:#1a56db;margin-top:4px;letter-spacing:1px">${examName}</div>
-          <div style="font-size:12px;color:#6b7280;margin-top:2px">Date: ${today}</div>
+          <div style="font-size:13px;font-weight:600;color:#1a56db;margin-top:4px;letter-spacing:1px">${examName} — ${cardTitle}</div>
         </div>
         ${logo ? `<img src="${logo}" style="width:80px;height:80px;object-fit:contain;border-radius:8px;flex-shrink:0">` : '<div style="width:80px;height:80px;background:#e8f0fe;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:36px;flex-shrink:0">🏫</div>'}
       </div>
@@ -1177,12 +1262,18 @@ async function loadResultCardPreview() {
       <table style="width:100%;border-collapse:collapse;font-size:13px;margin-bottom:14px">
         <thead>
           ${isFinal ? `<tr style="background:#1a56db;color:white">
-            <th style="padding:8px 10px;text-align:left;border:1px solid #1a56db">Subject</th>
-            <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Total Marks</th>
-            <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">${semesterSettings.sem1Name}</th>
-            <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">${semesterSettings.sem2Name}</th>
-            <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Final</th>
-            <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Result</th>
+            <th style="padding:8px 10px;text-align:left;border:1px solid #1a56db" rowspan="2">Subject</th>
+            <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db" colspan="3">${semesterSettings.sem1Name} (${semesterSettings.sem1Weight}%)</th>
+            <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db" colspan="3">${semesterSettings.sem2Name} (${semesterSettings.sem2Weight}%)</th>
+            <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db" rowspan="2">Final Total</th>
+          </tr>
+          <tr style="background:#1e429f;color:white">
+            <th style="padding:6px 10px;text-align:center;border:1px solid #1a56db">Total</th>
+            <th style="padding:6px 10px;text-align:center;border:1px solid #1a56db">Obtained</th>
+            <th style="padding:6px 10px;text-align:center;border:1px solid #1a56db">Weighted</th>
+            <th style="padding:6px 10px;text-align:center;border:1px solid #1a56db">Total</th>
+            <th style="padding:6px 10px;text-align:center;border:1px solid #1a56db">Obtained</th>
+            <th style="padding:6px 10px;text-align:center;border:1px solid #1a56db">Weighted</th>
           </tr>` : `<tr style="background:#1a56db;color:white">
             <th style="padding:8px 10px;text-align:left;border:1px solid #1a56db">Subject</th>
             <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Total</th>
@@ -1195,13 +1286,14 @@ async function loadResultCardPreview() {
       </table>
       <!-- Footer Summary -->
       <div style="display:flex;justify-content:space-between;align-items:center;background:#f0f4ff;padding:12px 16px;border-radius:8px;flex-wrap:wrap;gap:8px">
-        <div style="font-size:13px"><strong>Total Marks:</strong> ${totalObtained} / ${totalMax}</div>
+        <div style="font-size:13px"><strong>${isFinal?'Final Total':'Total Marks'}:</strong> ${isFinal?finalTotalDisplay+' / '+totalMaxDisplay:totalObtained+' / '+totalMax}</div>
         <div style="font-size:13px"><strong>Percentage:</strong> ${pct}%</div>
         <div style="font-size:13px"><strong>Grade:</strong> <span style="font-weight:900;color:#1a56db">${grade}</span></div>
         <div style="font-size:14px;font-weight:800;color:${overallColor}">${overallPass ? '✅ PASS' : '❌ FAIL'}</div>
       </div>
+      ${isFinal?`<div style="text-align:center;font-size:11px;color:#6b7280;margin-top:5px">Weightage: <strong>${semesterSettings.sem1Name}=${semesterSettings.sem1Weight}%</strong> | <strong>${semesterSettings.sem2Name}=${semesterSettings.sem2Weight}%</strong></div>`:''}
       <!-- Position Banner -->
-      <div style="margin-top:12px;background:linear-gradient(135deg,#1a56db,#7c3aed);border-radius:10px;padding:12px 16px;text-align:center;color:white">
+      <div style="margin-top:12px;background:#1a56db !important;background:linear-gradient(135deg,#1a56db,#7c3aed) !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;border-radius:10px;padding:12px 16px;text-align:center;color:white !important">
         <div style="font-size:13px;opacity:0.85">Class Position</div>
         <div style="font-size:18px;font-weight:900;margin-top:2px">🏆 You stood ${studentPos.pos}${studentPos.suffix} out of ${students.length} students in the class</div>
       </div>
@@ -1210,6 +1302,14 @@ async function loadResultCardPreview() {
         <div style="text-align:center;width:140px"><div style="border-top:1px solid #111;padding-top:4px;font-size:12px;color:#6b7280">Class Teacher</div></div>
         <div style="text-align:center;width:140px"><div style="border-top:1px solid #111;padding-top:4px;font-size:12px;color:#6b7280">Principal</div></div>
         <div style="text-align:center;width:140px"><div style="border-top:1px solid #111;padding-top:4px;font-size:12px;color:#6b7280">School Stamp</div></div>
+      </div>
+      <!-- Result Declaration Date -->
+      <div style="margin-top:14px;text-align:center;font-size:12px;font-weight:700;color:#374151">
+        Result Declaration Date: <span style="color:#1a56db">${today}</span>
+      </div>
+      <!-- Developer Footer -->
+      <div style="margin-top:8px;text-align:center;font-size:11px;color:#9ca3af;border-top:1px solid #f3f4f6;padding-top:8px">
+        DATABASE DEVELOPED BY: <strong style="color:#6b7280">SANA ULLAH YOUSAFZAI</strong> &nbsp;&nbsp;| Cell: <strong style="color:#6b7280">03419854128</strong>
       </div>
     </div>`;
   });
@@ -1229,9 +1329,10 @@ function printResultCards() {
       body { font-family: 'Outfit', sans-serif; background: white; padding: 20px; }
       .result-card { page-break-after: always; margin-bottom: 20px; }
       @media print {
-        body { padding: 0; }
+        body { padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact; }
         .result-card { page-break-after: always; margin: 0; }
         @page { margin: 10mm; size: A4; }
+        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
       }
     </style>
   </head><body>${cardsHTML}</body></html>`);
@@ -1350,6 +1451,7 @@ function showPage(page, el) {
   else if (page === 'settings') { loadSchoolName(); loadGradingSystem(); loadSemesterSettings(); populateResultCardFilter(); }
   else if (page === 'teacherMarks') loadTeacherMarksPage();
   else if (page === 'teacherView') loadTeacherViewPage();
+  else if (page === 'teacherPdf') loadTeacherPdfPage();
 }
 
 // ===== DASHBOARD =====
@@ -1440,11 +1542,11 @@ async function deleteClass(id) {
 function renderSubjects() {
   const el = document.getElementById('subjectsList');
   if (!allSubjects.length) { el.innerHTML = '<div class="empty-state"><div class="emoji">📚</div><h3>Koi subject nahi — add karein</h3></div>'; return; }
-  let html = '<div class="table-wrapper"><table><thead><tr><th>#</th><th>Subject</th><th>Class</th><th>Total</th><th>Pass</th><th>Action</th></tr></thead><tbody>';
+  let html = '<div class="table-wrapper"><table><thead><tr><th>#</th><th>Subject</th><th>Class</th><th>Sem1 Total</th><th>Sem2 Total</th><th>Pass</th><th>Action</th></tr></thead><tbody>';
   allSubjects.forEach((s,i) => {
     const cls = allClasses.find(c=>c.id===s.classId);
     html += `<tr><td>${i+1}</td><td><strong>${s.name}</strong></td><td><span class="badge badge-blue">${cls?cls.name:'?'}</span></td>
-      <td>${s.totalMarks}</td><td>${s.passMarks}</td>
+      <td>${s.sem1Total||s.totalMarks}</td><td>${s.sem2Total||s.totalMarks}</td><td>${s.passMarks}</td>
       <td style="display:flex;gap:6px">
         <button class="btn btn-outline btn-sm" onclick="editSubject('${s.id}')">✏️</button>
         <button class="btn btn-danger btn-sm" onclick="deleteSubject('${s.id}')">🗑️</button>
@@ -1460,7 +1562,8 @@ function editSubject(id) {
   allClasses.forEach(c=>sel.innerHTML+=`<option value="${c.id}">${c.name}${c.section?' - '+c.section:''}</option>`);
   document.getElementById('subjectNameInput').value = s.name;
   sel.value = s.classId;
-  document.getElementById('subjectTotalMarksInput').value = s.totalMarks;
+  document.getElementById('subjectSem1TotalInput').value = s.sem1Total || s.totalMarks || '';
+  document.getElementById('subjectSem2TotalInput').value = s.sem2Total || s.totalMarks || '';
   document.getElementById('subjectPassMarksInput').value = s.passMarks;
   document.getElementById('editSubjectId').value = id;
   document.querySelector('#subjectModal .modal-title').textContent = '✏️ Subject Edit Karein';
@@ -1470,18 +1573,21 @@ function editSubject(id) {
 async function saveSubject() {
   const name = document.getElementById('subjectNameInput').value.trim();
   const classId = document.getElementById('subjectClassInput').value;
-  const totalMarks = parseInt(document.getElementById('subjectTotalMarksInput').value);
+  const sem1Total = parseInt(document.getElementById('subjectSem1TotalInput').value);
+  const sem2Total = parseInt(document.getElementById('subjectSem2TotalInput').value);
   const passMarks = parseInt(document.getElementById('subjectPassMarksInput').value);
+  const totalMarks = (sem1Total||0) + (sem2Total||0);
   const editId = document.getElementById('editSubjectId').value;
-  if (!name||!classId||!totalMarks||!passMarks) { alert('Sab fields bharein'); return; }
+  if (!name||!classId||!sem1Total||!sem2Total||!passMarks) { alert('Sab fields bharein'); return; }
   if (editId) {
-    await db.collection('subjects').doc(editId).update({ name, classId, totalMarks, passMarks });
+    await db.collection('subjects').doc(editId).update({ name, classId, sem1Total, sem2Total, totalMarks, passMarks });
   } else {
-    await db.collection('subjects').add({ name, classId, totalMarks, passMarks, createdAt: new Date() });
+    await db.collection('subjects').add({ name, classId, sem1Total, sem2Total, totalMarks, passMarks, createdAt: new Date() });
   }
   closeModal('subjectModal');
   document.getElementById('subjectNameInput').value='';
-  document.getElementById('subjectTotalMarksInput').value='';
+  document.getElementById('subjectSem1TotalInput').value='';
+  document.getElementById('subjectSem2TotalInput').value='';
   document.getElementById('subjectPassMarksInput').value='';
   document.getElementById('editSubjectId').value='';
   document.querySelector('#subjectModal .modal-title').textContent = '📚 Subject Add Karein';
@@ -1523,10 +1629,11 @@ function populateTeacherSubjectList() {
   if (!allSubjects.length) { el.innerHTML = '<div class="text-muted text-sm" style="padding:8px">Pehle subjects add karein</div>'; return; }
   el.innerHTML = allSubjects.map(s => {
     const cls = allClasses.find(c=>c.id===s.classId);
+    const clsLabel = cls ? cls.name + (cls.section ? ' ('+cls.section+')' : '') : '?';
     return `<div class="subject-assign-item">
       <input type="checkbox" id="tsub_${s.id}" value="${s.id}">
       <label for="tsub_${s.id}">${s.name}</label>
-      <span class="sub-class">${cls?cls.name:'?'}</span>
+      <span class="sub-class">${clsLabel}</span>
     </div>`;
   }).join('');
 }
@@ -1729,13 +1836,28 @@ async function renderTeacherMarksForm(sub) {
   <div class="card">
     <div id="saveMsg_${sub.id}"></div>
     <div class="table-wrapper">
-    <table><thead><tr><th>Roll No</th><th>Student</th><th>Father</th><th>Marks (/${sub.totalMarks})</th><th>Status</th></tr></thead><tbody>`;
+    <table><thead><tr><th>Roll No</th><th>Student</th><th>Father</th><th>Marks (/${activeSemester===2?(sub.sem2Total||sub.totalMarks):(sub.sem1Total||sub.totalMarks)})</th><th>Status</th></tr></thead><tbody>`;
 
   students.forEach(s => {
     const val = existing[s.id] !== undefined ? existing[s.id] : '';
-    const statusHtml = val !== '' ? (val >= sub.passMarks ? '<span style="color:var(--success);font-weight:700">✅ Pass</span>' : '<span style="color:var(--danger);font-weight:700">❌ Fail</span>') : '—';
-    html += `<tr><td><strong>${s.rollNo}</strong></td><td>${s.name}</td><td>${s.fatherName}</td>
-      <td><input type="number" min="0" max="${sub.totalMarks}" value="${val}" id="mk_${sub.id}_${s.id}" onchange="updateStatusLive('${sub.id}','${s.id}',${sub.passMarks},${sub.totalMarks})" style="width:90px;text-align:center;font-weight:700;font-size:15px"></td>
+    const isAbsent = val === 'AB';
+    const statusHtml = isAbsent
+      ? '<span style="color:#fff;background:#dc2626;padding:3px 10px;border-radius:6px;font-weight:700;font-size:12px">ABSENT</span>'
+      : val !== '' ? (val >= sub.passMarks ? '<span style="color:var(--success);font-weight:700">✅ Pass</span>' : '<span style="color:var(--danger);font-weight:700">❌ Fail</span>') : '—';
+    html += `<tr id="row_${sub.id}_${s.id}" style="${isAbsent?'background:#fff5f5':''}">
+      <td><strong>${s.rollNo}</strong></td><td>${s.name}</td><td>${s.fatherName}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="number" min="0" max="${activeSemester===2?(sub.sem2Total||sub.totalMarks):(sub.sem1Total||sub.totalMarks)}" value="${isAbsent?'':val}" id="mk_${sub.id}_${s.id}"
+            ${isAbsent?'disabled style="width:80px;text-align:center;font-weight:700;font-size:15px;opacity:0.4;background:#f3f4f6"':'style="width:80px;text-align:center;font-weight:700;font-size:15px"'}
+            onchange="updateStatusLive('${sub.id}','${s.id}',${sub.passMarks},${sub.totalMarks})">
+          <button id="absbtn_${sub.id}_${s.id}" onclick="toggleAbsent('${sub.id}','${s.id}',${sub.passMarks},${sub.totalMarks})"
+            style="padding:5px 10px;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;
+            background:${isAbsent?'#6b7280':'#dc2626'};color:white;transition:all 0.2s">
+            ${isAbsent?'↩ Wapas':'🚫 Absent'}
+          </button>
+        </div>
+      </td>
       <td id="st_${sub.id}_${s.id}">${statusHtml}</td></tr>`;
   });
 
@@ -1745,6 +1867,36 @@ async function renderTeacherMarksForm(sub) {
     </div>
   </div>`;
   contentEl.innerHTML = html;
+}
+
+function toggleAbsent(subId, studentId, passMarks, totalMarks) {
+  const inp = document.getElementById(`mk_${subId}_${studentId}`);
+  const stEl = document.getElementById(`st_${subId}_${studentId}`);
+  const btn = document.getElementById(`absbtn_${subId}_${studentId}`);
+  const row = document.getElementById(`row_${subId}_${studentId}`);
+  const isCurrentlyAbsent = inp.disabled;
+
+  if (isCurrentlyAbsent) {
+    // Wapas normal karo
+    inp.disabled = false;
+    inp.style.opacity = '1';
+    inp.style.background = '';
+    inp.value = '';
+    btn.style.background = '#dc2626';
+    btn.textContent = '🚫 Absent';
+    row.style.background = '';
+    stEl.innerHTML = '—';
+  } else {
+    // Absent mark karo
+    inp.disabled = true;
+    inp.style.opacity = '0.4';
+    inp.style.background = '#f3f4f6';
+    inp.value = '';
+    btn.style.background = '#6b7280';
+    btn.textContent = '↩ Wapas';
+    row.style.background = '#fff5f5';
+    stEl.innerHTML = '<span style="color:#fff;background:#dc2626;padding:3px 10px;border-radius:6px;font-weight:700;font-size:12px">ABSENT</span>';
+  }
 }
 
 function updateStatusLive(subId, studentId, passMarks, totalMarks) {
@@ -1762,14 +1914,24 @@ async function saveAllMarks(subjectId, classId, passMarks) {
   const batch = db.batch();
   for (const s of students) {
     const inp = document.getElementById(`mk_${subjectId}_${s.id}`);
-    if (!inp || inp.value.trim()==='') continue;
-    const marks = parseFloat(inp.value);
+    if (!inp) continue;
+    const isAbsent = inp.disabled;
+    if (!isAbsent && inp.value.trim()==='') continue;
     const docId = `${classId}_${subjectId}_${s.id}_sem${activeSemester}`;
-    batch.set(db.collection('marks').doc(docId), {
-      studentId: s.id, subjectId, classId, marks, pass: marks>=passMarks,
-      semester: activeSemester,
-      enteredBy: currentUser.uid, enteredAt: new Date()
-    });
+    if (isAbsent) {
+      batch.set(db.collection('marks').doc(docId), {
+        studentId: s.id, subjectId, classId, marks: 'AB', pass: false,
+        absent: true, semester: activeSemester,
+        enteredBy: currentUser.uid, enteredAt: new Date()
+      });
+    } else {
+      const marks = parseFloat(inp.value);
+      batch.set(db.collection('marks').doc(docId), {
+        studentId: s.id, subjectId, classId, marks, pass: marks>=passMarks,
+        absent: false, semester: activeSemester,
+        enteredBy: currentUser.uid, enteredAt: new Date()
+      });
+    }
   }
   await batch.commit();
   if (msgEl) { msgEl.innerHTML = '<div class="alert alert-success">✅ Marks save ho gaye!</div>'; setTimeout(()=>msgEl.innerHTML='', 3000); }
@@ -1791,13 +1953,48 @@ async function loadTeacherViewPage() {
       <div class="table-wrapper"><table><thead><tr><th>Roll No</th><th>Student</th><th>Father</th><th>Marks</th><th>Result</th></tr></thead><tbody>`;
     students.forEach(s => {
       const m = mm[s.id];
+      const isAbsent = m === 'AB';
       html += `<tr><td>${s.rollNo}</td><td>${s.name}</td><td>${s.fatherName}</td>
-        <td>${m!==undefined?m+'/'+sub.totalMarks:'—'}</td>
-        <td>${m!==undefined?(m>=sub.passMarks?'<span class="badge badge-green">Pass</span>':'<span class="badge badge-red">Fail</span>'):'<span class="badge badge-gray">Pending</span>'}</td></tr>`;
+        <td>${isAbsent ? '<span style="background:#dc2626;color:white;padding:2px 8px;border-radius:6px;font-weight:700;font-size:12px">ABSENT</span>' : (m!==undefined?m+'/'+sub.totalMarks:'—')}</td>
+        <td>${isAbsent ? '<span style="background:#dc2626;color:white;padding:2px 8px;border-radius:6px;font-weight:700;font-size:12px">ABSENT</span>' : (m!==undefined?(m>=sub.passMarks?'<span class="badge badge-green">Pass</span>':'<span class="badge badge-red">Fail</span>'):'<span class="badge badge-gray">Pending</span>')}</td></tr>`;
     });
     html += '</tbody></table></div></div>';
   }
   el.innerHTML = html || '<div class="empty-state"><div class="emoji">📋</div><h3>Koi data nahi</h3></div>';
+}
+
+// ===== TEACHER PDF =====
+async function loadTeacherPdfPage() {
+  const el = document.getElementById('teacherPdfList');
+  const subjectIds = currentTeacherData.subjectIds || (currentTeacherData.subjectId ? [currentTeacherData.subjectId] : []);
+  if (!subjectIds.length) {
+    el.innerHTML = '<div class="empty-state"><div class="emoji">⚠️</div><h3>Koi subject assign nahi</h3></div>'; return;
+  }
+  const mySubjects = subjectIds.map(sid => allSubjects.find(s=>s.id===sid)).filter(Boolean);
+  if (!mySubjects.length) { el.innerHTML = '<div class="empty-state"><div class="emoji">⚠️</div><h3>Subject nahi mila</h3></div>'; return; }
+
+  el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px">' +
+    mySubjects.map(s => {
+      const cls = allClasses.find(c=>c.id===s.classId);
+      return `<div style="padding:16px;background:var(--bg);border-radius:12px;border:1px solid var(--border)">
+        <div style="font-weight:700;font-size:15px;margin-bottom:4px">${s.name}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">${cls?cls.name+(cls.section?' - '+cls.section:''):''} &nbsp;|&nbsp; Total: ${s.totalMarks}</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-pdf btn-sm" style="flex:1" onclick="downloadPDF('${s.id}','${s.classId}',1)">📄 Sem 1</button>
+          <button class="btn btn-pdf btn-sm" style="flex:1" onclick="downloadPDF('${s.id}','${s.classId}',2)">📄 Sem 2</button>
+        </div>
+      </div>`;
+    }).join('') + '</div>';
+}
+
+async function generateTeacherPDF() {
+  const sem = parseInt(document.getElementById('teacherPdfSemFilter').value);
+  const subjectIds = currentTeacherData.subjectIds || (currentTeacherData.subjectId ? [currentTeacherData.subjectId] : []);
+  if (!subjectIds.length) { alert('Koi subject assign nahi'); return; }
+  for (const sid of subjectIds) {
+    const sub = allSubjects.find(s=>s.id===sid);
+    if (sub) await downloadPDF(sub.id, sub.classId, sem);
+  }
 }
 
 // ===== RESULT CARD FILTER POPULATE =====
@@ -1841,43 +2038,66 @@ async function loadResultView() {
   const semLabel=isFinal?'🏆 Final Combined':semFilter==='1'?('📘 '+semesterSettings.sem1Name):('📗 '+semesterSettings.sem2Name);
 
   const results=students.map(s=>{
-    let total=0,max=0,allPass=true,hasAnyMarks=false;
+    let total=0, hasAnyMarks=false;
     const sr=subjects.map(sub=>{
-      let m,p;
+      let m, p, displayM;
       if(isFinal){
         const m1=mm1[`${s.id}_${sub.id}`]; const m2=mm2[`${s.id}_${sub.id}`];
         const hasDat=m1!==undefined||m2!==undefined;
-        m=hasDat?Math.round((m1||0)*w1+(m2||0)*w2):undefined;
-        p=hasDat&&m>=Math.round(sub.passMarks);
-        if(hasDat) hasAnyMarks=true;
+        const a1=m1==='AB', a2=m2==='AB';
+        if(a1||a2){
+          m=0; displayM='AB'; p=false;
+          if(hasDat) hasAnyMarks=true;
+        } else if(hasDat){
+          const s1t=sub.sem1Total||sub.totalMarks; const s2t=sub.sem2Total||sub.totalMarks;
+          const wt1=typeof m1==='number'?parseFloat(((m1/s1t)*w1*100).toFixed(2)):0;
+          const wt2=typeof m2==='number'?parseFloat(((m2/s2t)*w2*100).toFixed(2)):0;
+          m=parseFloat((wt1+wt2).toFixed(2));
+          displayM=m; p=m>=failThreshold; hasAnyMarks=true;
+        } else {
+          m=0; displayM=undefined; p=false;
+        }
+        total+=m;
       } else {
         m=activeMap[`${s.id}_${sub.id}`];
+        displayM=m;
         if(m!==undefined) hasAnyMarks=true;
-        p=m!==undefined&&m>=sub.passMarks;
+        if(m==='AB'){ p=false; }
+        else { p=m!==undefined&&m>=sub.passMarks; }
+        total+=(typeof m==='number'?m:0);
       }
-      if(m!==undefined&&!p) allPass=false;
-      total+=m||0; max+=sub.totalMarks;
-      return {sub,m,p};
+      return {sub,m,displayM,p};
     });
-    const pct=max>0?Math.round((total/max)*100):0;
+    // max is ALWAYS subjects * 100 for isFinal (whether marks entered or not)
+    const max = isFinal
+      ? subjects.length * 100
+      : subjects.reduce((a,sub)=>a+(isSem2?(sub.sem2Total||sub.totalMarks):(sub.sem1Total||sub.totalMarks)),0);
+    const pct = max>0
+      ? (isFinal ? parseFloat((total/max*100).toFixed(1)) : Math.round((total/max)*100))
+      : 0;
     const grade=getGradeForPct(pct);
-    const passed=hasAnyMarks&&allPass&&pct>=failThreshold&&subjects.length>0;
-    return {...s,sr,total,max,pct,grade,passed};
+    const passed=hasAnyMarks&&pct>=failThreshold&&subjects.length>0;
+    const displayTotal=isFinal?total.toFixed(2):total;
+    return {...s,sr,total,max,pct,grade,passed,displayTotal,displayMax:max};
   });
 
-  const sorted=[...results].sort((a,b)=>b.total-a.total);
-  sorted.forEach((r,i)=>r.pos=i+1);
+  const sorted=[...results].sort((a,b)=>b.total-a.total); // total is weighted for isFinal
+  sorted.forEach((r,i)=>{
+    const prevPos = i>0 ? sorted[i-1].pos : null;
+    const prevTotal = i>0 ? sorted[i-1].total : null;
+    r.pos = (i>0 && r.total===prevTotal) ? prevPos : i+1;
+  });
 
   let html=`<div class="flex-between" style="margin-bottom:14px">
     <h3>${cls?cls.name:''} — ${semLabel}</h3>
     <button class="btn btn-success btn-sm" onclick="downloadResultExcel('${classId}','${semFilter}')">📥 Excel Download</button>
   </div><div class="table-wrapper"><table><thead><tr><th>Pos</th><th>Roll</th><th>Student</th><th>Father</th>`;
-  subjects.forEach(s=>html+=`<th>${s.name}<br><small style="font-weight:400;color:var(--text-muted)">(${s.totalMarks})</small></th>`);
+  subjects.forEach(s=>html+=`<th>${s.name}<br><small style="font-weight:400;color:var(--text-muted)">(${isFinal?'100':isSem2?(s.sem2Total||s.totalMarks):(s.sem1Total||s.totalMarks)})</small></th>`);
   html+=`<th>Total</th><th>%</th><th>Grade</th><th>Result</th><th>Card</th></tr></thead><tbody>`;
   results.forEach(r=>{
     html+=`<tr><td><strong>#${r.pos}</strong></td><td>${r.rollNo}</td><td>${r.name}</td><td>${r.fatherName}</td>`;
-    r.sr.forEach(x=>html+=`<td style="font-weight:700;color:${x.m===undefined?'#9ca3af':x.p?'var(--success)':'var(--danger)'}">${x.m!==undefined?x.m:'—'}</td>`);
-    html+=`<td><strong>${r.total}/${r.max}</strong></td><td>${r.pct}%</td>
+    r.sr.forEach(x=>{ const dc=x.displayM===undefined?'#9ca3af':x.displayM==='AB'?'var(--danger)':x.p?'var(--success)':'var(--danger)'; const dv=x.displayM!==undefined?x.displayM:'—'; html+=`<td style='font-weight:700;color:${dc}'>${dv}</td>`; });
+    html+=`<td><strong>${r.displayTotal}/${r.displayMax}</strong></td><td>${r.pct}%</td>
       <td><span class="badge ${r.pct>=70?'badge-green':r.pct>=50?'badge-yellow':'badge-red'}">${r.grade}</span></td>
       <td><span class="badge ${r.passed?'badge-green':'badge-red'}">${r.passed?'✅ Pass':'❌ Fail'}</span></td>
       <td><button class="btn btn-outline btn-sm" onclick="viewSingleResultCard('${r.id}','${classId}','${semFilter}')" title="Result Card dekhein">🪪</button></td></tr>`;
@@ -1910,26 +2130,44 @@ async function downloadResultExcel(classId, semFilter) {
 
   // ---- Build rows ----
   const results = students.map(s => {
-    let total=0, max=0, allPass=true, hasAnyMarks=false;
+    let total=0, hasAnyMarks=false;
     const subMarks = subjects.map(sub => {
-      let m;
+      let m, displayM;
       if(isFinal){
         const m1=mm1[`${s.id}_${sub.id}`]; const m2=mm2[`${s.id}_${sub.id}`];
         const hasDat = m1!==undefined || m2!==undefined;
-        m = hasDat ? Math.round((m1||0)*w1 + (m2||0)*w2) : undefined;
-        if(hasDat) hasAnyMarks = true;
+        const a1=m1==='AB', a2=m2==='AB';
+        if(a1||a2){
+          m=0; displayM='AB'; hasAnyMarks=true;
+        } else if(hasDat){
+          const s1t=sub.sem1Total||sub.totalMarks; const s2t=sub.sem2Total||sub.totalMarks;
+          const wt1=typeof m1==='number'?parseFloat(((m1/s1t)*w1*100).toFixed(2)):0;
+          const wt2=typeof m2==='number'?parseFloat(((m2/s2t)*w2*100).toFixed(2)):0;
+          m=parseFloat((wt1+wt2).toFixed(2)); displayM=m; hasAnyMarks=true;
+        } else {
+          m=0; displayM=undefined;
+        }
+        total+=m;
+        return displayM;
       } else {
         m = activeMap[`${s.id}_${sub.id}`];
+        if(m==='AB'){ hasAnyMarks=true; return 'AB'; }
         if(m !== undefined) hasAnyMarks = true;
+        total += (typeof m==='number'?m:0);
+        return m;
       }
-      if(m!==undefined && m < sub.passMarks) allPass = false;
-      total += m||0; max += sub.totalMarks;
-      return m;
     });
-    const pct = max>0 ? Math.round((total/max)*100) : 0;
+    // max always = subjects*100 for isFinal
+    const max = isFinal
+      ? subjects.length * 100
+      : subjects.reduce((a,sub)=>a+(isSem2?(sub.sem2Total||sub.totalMarks):(sub.sem1Total||sub.totalMarks)),0);
+    const pct = max>0
+      ? (isFinal ? parseFloat((total/max*100).toFixed(1)) : Math.round((total/max)*100))
+      : 0;
     const grade = getGradeForPct(pct);
-    const passed = hasAnyMarks && allPass && pct >= failThreshold && subjects.length > 0;
-    return { ...s, subMarks, total, max, pct, grade, passed };
+    const passed = hasAnyMarks && pct >= failThreshold && subjects.length > 0;
+    const displayTotal = isFinal ? total.toFixed(2) : total;
+    return { ...s, subMarks, total, max, pct, grade, passed, displayTotal };
   });
 
   // Sort by total desc and assign positions
@@ -1969,7 +2207,7 @@ async function downloadResultExcel(classId, semFilter) {
       r.rollNo,
       r.name,
       r.fatherName,
-      ...r.subMarks.map(m => m !== undefined ? m : '—'),
+      ...r.subMarks.map(m => m === 'AB' ? 'ABSENT' : (m !== undefined ? m : '—')),
       r.total,
       r.max,
       r.pct + '%',
@@ -2031,50 +2269,84 @@ async function viewSingleResultCard(studentId, classId, semFilter) {
   const studentTotals = classStudents.map(s => {
     let t=0;
     subjects.forEach(sub => {
-      if(isFinal) t+=Math.round((mm1[`${s.id}_${sub.id}`]||0)*w1+(mm2[`${s.id}_${sub.id}`]||0)*w2);
-      else t+=(activeMap[`${s.id}_${sub.id}`]||0);
+      if(isFinal){
+        const v1 = typeof mm1[`${s.id}_${sub.id}`]==='number' ? mm1[`${s.id}_${sub.id}`] : 0;
+        const v2 = typeof mm2[`${s.id}_${sub.id}`]==='number' ? mm2[`${s.id}_${sub.id}`] : 0;
+        const s1t = sub.sem1Total||sub.totalMarks; const s2t = sub.sem2Total||sub.totalMarks;
+        t += parseFloat(((v1/s1t)*w1*100 + (v2/s2t)*w2*100).toFixed(2));
+      } else {
+        const v = activeMap[`${s.id}_${sub.id}`];
+        t+=(typeof v==='number' ? v : 0);
+      }
     });
     return {id:s.id,total:t};
   }).sort((a,b)=>b.total-a.total);
-  const position = studentTotals.findIndex(s => s.id === studentId) + 1;
+  // Tie-aware position
+  const myIdx = studentTotals.findIndex(s => s.id === studentId);
+  let position = 1;
+  if(myIdx > 0){
+    // Count how many students have strictly MORE marks
+    const myTotal = studentTotals[myIdx].total;
+    position = studentTotals.filter(s => s.total > myTotal).length + 1;
+  }
   const positionSuffix = position===1?'st':position===2?'nd':position===3?'rd':'th';
 
-  let totalObtained=0, totalMax=0, allPass=true, hasAllMarks=true, subjectRows='', tableHeader='';
+  let totalObtained=0, totalMax=0, subjectRows='', tableHeader='';
 
   if(isFinal){
     tableHeader=`<tr style="background:#1a56db;color:white">
-      <th style="padding:8px 10px;text-align:left;border:1px solid #1a56db">Subject</th>
-      <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Total Marks</th>
-      <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">${semesterSettings.sem1Name}</th>
-      <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">${semesterSettings.sem2Name}</th>
-      <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Final</th>
-      <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Result</th></tr>`;
-    let sem1Total=0,sem2Total=0,finalTotal=0;
+      <th style="padding:8px 10px;text-align:left;border:1px solid #1a56db" rowspan="2">Subject</th>
+      <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db" colspan="3">${semesterSettings.sem1Name} (${semesterSettings.sem1Weight}%)</th>
+      <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db" colspan="3">${semesterSettings.sem2Name} (${semesterSettings.sem2Weight}%)</th>
+      <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db" rowspan="2">Final Total</th>
+    </tr>
+    <tr style="background:#1e429f;color:white">
+      <th style="padding:6px 10px;text-align:center;border:1px solid #1a56db">Total</th>
+      <th style="padding:6px 10px;text-align:center;border:1px solid #1a56db">Obtained</th>
+      <th style="padding:6px 10px;text-align:center;border:1px solid #1a56db">Weighted</th>
+      <th style="padding:6px 10px;text-align:center;border:1px solid #1a56db">Total</th>
+      <th style="padding:6px 10px;text-align:center;border:1px solid #1a56db">Obtained</th>
+      <th style="padding:6px 10px;text-align:center;border:1px solid #1a56db">Weighted</th>
+    </tr>`;
+    let wtSum1=0, wtSum2=0, finalGrandTotal=0, sem1MaxRow=0, sem2MaxRow=0;
     subjects.forEach(sub=>{
       const m1=mm1[`${student.id}_${sub.id}`]; const m2=mm2[`${student.id}_${sub.id}`];
-      const obtained=(m1!==undefined||m2!==undefined)?Math.round((m1||0)*w1+(m2||0)*w2):undefined;
-      if(obtained===undefined){hasAllMarks=false; allPass=false;}
-      const pass=obtained!==undefined&&obtained>=Math.round(sub.passMarks);
-      if(obtained!==undefined&&!pass) allPass=false;
-      totalObtained+=obtained||0; totalMax+=sub.totalMarks;
-      sem1Total+=m1||0; sem2Total+=m2||0; finalTotal+=obtained||0;
-      const rc=obtained!==undefined?(pass?'#057a55':'#c81e1e'):'#6b7280';
+      const a1=m1==='AB', a2=m2==='AB';
+      const s1tot = sub.sem1Total||sub.totalMarks;
+      const s2tot = sub.sem2Total||sub.totalMarks;
+      const wt1 = a1 ? 0 : (typeof m1==='number' ? parseFloat(((m1/s1tot)*w1*100).toFixed(2)) : 0);
+      const wt2 = a2 ? 0 : (typeof m2==='number' ? parseFloat(((m2/s2tot)*w2*100).toFixed(2)) : 0);
+      const subFinal = parseFloat((wt1+wt2).toFixed(2));
+      wtSum1+=wt1; wtSum2+=wt2; finalGrandTotal+=subFinal;
+      sem1MaxRow+=s1tot; sem2MaxRow+=s2tot;
+      totalObtained+=subFinal; totalMax+=100;
+      const abSpan = '<span style="color:#dc2626;font-weight:900;font-size:13px">A</span>';
+      const d1obt = a1 ? abSpan : (m1!==undefined?m1:'—');
+      const d2obt = a2 ? abSpan : (m2!==undefined?m2:'—');
+      const d1wt  = a1 ? abSpan : wt1.toFixed(2);
+      const d2wt  = a2 ? abSpan : wt2.toFixed(2);
+      const pass = subFinal >= failThreshold;
+      const ftColor = (a1||a2)?'#dc2626':(pass?'#057a55':'#c81e1e');
       subjectRows+=`<tr>
         <td style="padding:7px 10px;border:1px solid #e0e0e0">${sub.name}</td>
-        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:600">${sub.totalMarks}</td>
-        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${m1!==undefined?m1:'—'}</td>
-        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${m2!==undefined?m2:'—'}</td>
-        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700">${obtained!==undefined?obtained:'—'}</td>
-        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700;color:${rc}">${obtained!==undefined?(pass?'Pass':'Fail'):'—'}</td>
+        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;color:#374151">${s1tot}</td>
+        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${d1obt}</td>
+        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;color:#1a56db;font-weight:700">${d1wt}</td>
+        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;color:#374151">${s2tot}</td>
+        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${d2obt}</td>
+        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;color:#7c3aed;font-weight:700">${d2wt}</td>
+        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:800;color:${ftColor}">${(a1||a2)?abSpan:subFinal.toFixed(2)}</td>
       </tr>`;
     });
     subjectRows+=`<tr style="background:#f0f4ff;font-weight:800">
       <td style="padding:8px 10px;border:1px solid #c7d7f9">Total</td>
-      <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center">${totalMax}</td>
-      <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center">${sem1Total}</td>
-      <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center">${sem2Total}</td>
-      <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center;color:#1a56db">${finalTotal}</td>
+      <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center;color:#374151">${sem1MaxRow}</td>
       <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center">—</td>
+      <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center;color:#1a56db">${wtSum1.toFixed(2)}</td>
+      <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center;color:#374151">${sem2MaxRow}</td>
+      <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center">—</td>
+      <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center;color:#7c3aed">${wtSum2.toFixed(2)}</td>
+      <td style="padding:8px 10px;border:1px solid #c7d7f9;text-align:center;color:#057a55">${finalGrandTotal.toFixed(2)}</td>
     </tr>`;
   } else {
     tableHeader=`<tr style="background:#1a56db;color:white">
@@ -2084,25 +2356,29 @@ async function viewSingleResultCard(studentId, classId, semFilter) {
       <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Obtained</th>
       <th style="padding:8px 10px;text-align:center;border:1px solid #1a56db">Result</th></tr>`;
     subjects.forEach(sub=>{
-      const obtained=activeMap[`${student.id}_${sub.id}`];
-      if(obtained===undefined){hasAllMarks=false; allPass=false;}
-      const pass=obtained!==undefined&&obtained>=sub.passMarks;
-      if(obtained!==undefined&&!pass) allPass=false;
-      totalObtained+=obtained||0; totalMax+=sub.totalMarks;
-      const rc=obtained!==undefined?(pass?'#057a55':'#c81e1e'):'#6b7280';
+      const rawVal=activeMap[`${student.id}_${sub.id}`];
+      const isAbsent = rawVal==='AB';
+      const obtained = isAbsent ? undefined : rawVal;
+      const pass = !isAbsent && typeof obtained==='number' && obtained>=sub.passMarks;
+      totalObtained+=(typeof obtained==='number'?obtained:0);
+      totalMax += isSem2 ? (sub.sem2Total||sub.totalMarks) : (sub.sem1Total||sub.totalMarks);
+      const abBadge = '<span style="background:#dc2626;color:white;padding:2px 8px;border-radius:5px;font-size:12px;font-weight:700">Absent</span>';
+      const rc = isAbsent?'#dc2626':(obtained!==undefined?(pass?'#057a55':'#c81e1e'):'#6b7280');
       subjectRows+=`<tr>
         <td style="padding:7px 10px;border:1px solid #e0e0e0">${sub.name}</td>
         <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${sub.totalMarks}</td>
         <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${sub.passMarks}</td>
-        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700">${obtained!==undefined?obtained:'—'}</td>
-        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700;color:${rc}">${obtained!==undefined?(pass?'Pass':'Fail'):'—'}</td>
+        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700">${isAbsent?abBadge:(obtained!==undefined?obtained:'—')}</td>
+        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700;color:${rc}">${isAbsent?abBadge:(obtained!==undefined?(pass?'Pass':'Fail'):'—')}</td>
       </tr>`;
     });
   }
 
-  const pct = totalMax > 0 ? Math.round((totalObtained / totalMax) * 100) : 0;
+  const pct = isFinal
+    ? (subjects.length > 0 ? parseFloat((totalObtained / subjects.length).toFixed(2)) : 0)
+    : (totalMax > 0 ? Math.round((totalObtained / totalMax) * 100) : 0);
   const grade = getGradeForPct(pct);
-  const overallPass = hasAllMarks && allPass && subjects.length > 0 && pct >= failThreshold;
+  const overallPass = subjects.length > 0 && pct >= failThreshold;
   const overallColor = overallPass ? '#057a55' : '#c81e1e';
 
   const cardHTML = `
@@ -2114,7 +2390,6 @@ async function viewSingleResultCard(studentId, classId, semFilter) {
         <div style="flex:1;text-align:center">
           <div style="font-size:20px;font-weight:900;color:#0f172a;line-height:1.2">${schoolName}</div>
           <div style="font-size:13px;font-weight:600;color:#1a56db;margin-top:4px;letter-spacing:1px">${examName} — ${cardTitle}</div>
-          <div style="font-size:12px;color:#6b7280;margin-top:2px">Date: ${today}</div>
         </div>
         ${logo ? `<img src="${logo}" style="width:80px;height:80px;object-fit:contain;border-radius:8px;flex-shrink:0">` : '<div style="width:80px;height:80px;background:#e8f0fe;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:36px;flex-shrink:0">🏫</div>'}
       </div>
@@ -2128,14 +2403,14 @@ async function viewSingleResultCard(studentId, classId, semFilter) {
         <tbody>${subjectRows}</tbody>
       </table>
       <div style="display:flex;justify-content:space-between;align-items:center;background:#f0f4ff;padding:12px 16px;border-radius:8px;flex-wrap:wrap;gap:8px">
-        <div style="font-size:13px"><strong>Total Marks:</strong> ${totalObtained} / ${totalMax}</div>
+        <div style="font-size:13px"><strong>${isFinal ? 'Final Total' : 'Total Marks'}:</strong> ${isFinal ? totalObtained.toFixed(2)+' / '+(subjects.length*100) : totalObtained+' / '+totalMax}</div>
         <div style="font-size:13px"><strong>Percentage:</strong> ${pct}%</div>
         <div style="font-size:13px"><strong>Grade:</strong> <span style="font-weight:900;color:#1a56db">${grade}</span></div>
         <div style="font-size:14px;font-weight:800;color:${overallColor}">${overallPass ? '✅ PASS' : '❌ FAIL'}</div>
       </div>
       ${isFinal ? `<div style="text-align:center;font-size:12px;color:#6b7280;margin-top:6px">Weightage: <strong>${semesterSettings.sem1Name} = ${semesterSettings.sem1Weight}%</strong> &nbsp;|&nbsp; <strong>${semesterSettings.sem2Name} = ${semesterSettings.sem2Weight}%</strong></div>` : ''}
       <!-- Position Banner -->
-      <div style="margin-top:12px;background:linear-gradient(135deg,#1a56db,#7c3aed);border-radius:10px;padding:12px 16px;text-align:center;color:white">
+      <div style="margin-top:12px;background:#1a56db !important;background:linear-gradient(135deg,#1a56db,#7c3aed) !important;-webkit-print-color-adjust:exact !important;print-color-adjust:exact !important;border-radius:10px;padding:12px 16px;text-align:center;color:white !important">
         <div style="font-size:13px;opacity:0.85">Class Position</div>
         <div style="font-size:18px;font-weight:900;margin-top:2px">🏆 You stood <span style="font-size:22px">${position}${positionSuffix}</span> out of ${totalStudents} students in the class</div>
       </div>
@@ -2143,6 +2418,14 @@ async function viewSingleResultCard(studentId, classId, semFilter) {
         <div style="text-align:center;width:140px"><div style="border-top:1px solid #111;padding-top:4px;font-size:12px;color:#6b7280">Class Teacher</div></div>
         <div style="text-align:center;width:140px"><div style="border-top:1px solid #111;padding-top:4px;font-size:12px;color:#6b7280">Principal</div></div>
         <div style="text-align:center;width:140px"><div style="border-top:1px solid #111;padding-top:4px;font-size:12px;color:#6b7280">School Stamp</div></div>
+      </div>
+      <!-- Result Declaration Date -->
+      <div style="margin-top:14px;text-align:center;font-size:12px;font-weight:700;color:#374151">
+        Result Declaration Date: <span style="color:#1a56db">${today}</span>
+      </div>
+      <!-- Developer Footer -->
+      <div style="margin-top:8px;text-align:center;font-size:11px;color:#9ca3af;border-top:1px solid #f3f4f6;padding-top:8px">
+        DATABASE DEVELOPED BY: <strong style="color:#6b7280">SANA ULLAH YOUSAFZAI</strong> &nbsp;&nbsp;| Cell: <strong style="color:#6b7280">03419854128</strong>
       </div>
     </div>`;
 
@@ -2213,6 +2496,7 @@ function populatePdfFilter() {
 
 function loadPdfSubjects() {
   const classId = document.getElementById('pdfClassFilter').value;
+  const semFilter = document.getElementById('pdfSemFilter').value;
   const sel = document.getElementById('pdfSubjectFilter');
   sel.innerHTML = '<option value="">-- Subject chunein --</option>';
   const subs = allSubjects.filter(s=>s.classId===classId);
@@ -2220,29 +2504,34 @@ function loadPdfSubjects() {
   const el = document.getElementById('quickPdfList');
   if (!classId||!subs.length) { el.innerHTML='<div class="empty-state"><div class="emoji">📄</div><h3>Class select karein</h3></div>'; return; }
   const cls = allClasses.find(c=>c.id===classId);
+  const semLabel = semFilter==='2' ? semesterSettings.sem2Name : semesterSettings.sem1Name;
   el.innerHTML = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px">' +
     subs.map(s=>`<div style="padding:14px;background:var(--bg);border-radius:10px;display:flex;align-items:center;justify-content:space-between">
-      <div><strong>${s.name}</strong><br><small class="text-muted">${cls?cls.name:''} — ${s.totalMarks} marks</small></div>
-      <button class="btn btn-pdf btn-sm" onclick="downloadPDF('${s.id}','${classId}')">📄</button>
+      <div><strong>${s.name}</strong><br><small class="text-muted">${cls?cls.name:''} — ${semLabel}</small></div>
+      <button class="btn btn-pdf btn-sm" onclick="downloadPDF('${s.id}','${classId}',${semFilter})">📄</button>
     </div>`).join('') + '</div>';
 }
 
 async function generateSubjectPDF() {
   const classId = document.getElementById('pdfClassFilter').value;
   const subjectId = document.getElementById('pdfSubjectFilter').value;
+  const semFilter = parseInt(document.getElementById('pdfSemFilter').value);
   if (!classId||!subjectId) { alert('Class aur Subject chunein'); return; }
-  await downloadPDF(subjectId, classId);
+  await downloadPDF(subjectId, classId, semFilter);
 }
 
-async function downloadPDF(subjectId, classId) {
+async function downloadPDF(subjectId, classId, semester) {
+  semester = semester || activeSemester || 1;
   const sub = allSubjects.find(s=>s.id===subjectId);
   const cls = allClasses.find(c=>c.id===classId);
   const students = allStudents.filter(s=>s.classId===classId).sort((a,b)=>String(a.rollNo).localeCompare(String(b.rollNo),undefined,{numeric:true}));
-  const snap = await db.collection('marks').where('subjectId','==',subjectId).where('classId','==',classId).get();
+  const snap = await db.collection('marks').where('subjectId','==',subjectId).where('classId','==',classId).where('semester','==',semester).get();
   const mm = {}; snap.docs.forEach(d=>mm[d.data().studentId]=d.data().marks);
 
+  const semLabel = semester===2 ? semesterSettings.sem2Name : semesterSettings.sem1Name;
   const settingDoc = await db.collection('settings').doc('school').get();
   const schoolName = settingDoc.exists ? settingDoc.data().name : 'School';
+  const examName = settingDoc.exists && settingDoc.data().examName ? settingDoc.data().examName : '';
 
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF();
@@ -2255,16 +2544,20 @@ async function downloadPDF(subjectId, classId) {
   doc.setTextColor(255,255,255);
   doc.setFont('helvetica','bold');
   doc.setFontSize(16);
-  doc.text(schoolName, 105, 14, {align:'center'});
+  doc.text(schoolName, 105, 12, {align:'center'});
   doc.setFontSize(11);
   doc.setFont('helvetica','normal');
-  doc.text(`Subject: ${sub.name}   |   Class: ${cls?cls.name:''}   |   Total Marks: ${sub.totalMarks}   |   Pass: ${sub.passMarks}`, 105, 27, {align:'center'});
+  doc.text(examName ? `${examName} — ${semLabel}` : semLabel, 105, 21, {align:'center'});
   doc.setFontSize(9);
+  doc.text(`Subject: ${sub.name}   |   Class: ${cls?cls.name+(cls.section?' - '+cls.section:''):''}   |   Total: ${sub.totalMarks}   |   Pass: ${sub.passMarks}`, 105, 30, {align:'center'});
   doc.text(`Generated: ${new Date().toLocaleDateString('en-PK')}`, 105, 37, {align:'center'});
 
   const rows = students.map((s,i)=>{
     const m = mm[s.id];
-    return [i+1, s.rollNo, s.name, s.fatherName, m!==undefined?m:'N/A', sub.totalMarks, m!==undefined?(m>=sub.passMarks?'Pass':'Fail'):'Pending'];
+    const isAbsent = m === 'AB';
+    const obtained = isAbsent ? 'ABSENT' : (m!==undefined ? m : 'N/A');
+    const result = isAbsent ? 'Absent' : (m!==undefined ? (m>=sub.passMarks?'Pass':'Fail') : 'Pending');
+    return [i+1, s.rollNo, s.name, s.fatherName, obtained, sub.totalMarks, result];
   });
 
   doc.autoTable({
@@ -2278,18 +2571,26 @@ async function downloadPDF(subjectId, classId) {
       if (data.section==='body' && data.column.index===6) {
         if (data.cell.raw==='Pass') data.cell.styles.textColor=[5,122,85];
         else if (data.cell.raw==='Fail') data.cell.styles.textColor=[200,30,30];
+        else if (data.cell.raw==='Absent') { data.cell.styles.textColor=[255,255,255]; data.cell.styles.fillColor=[220,38,38]; }
+      }
+      if (data.section==='body' && data.column.index===4 && data.cell.raw==='ABSENT') {
+        data.cell.styles.textColor=[220,38,38]; data.cell.styles.fontStyle='bold';
       }
     }
   });
 
   const fy = doc.lastAutoTable.finalY+10;
-  const total=students.length, appeared=students.filter(s=>mm[s.id]!==undefined).length;
-  const passed=students.filter(s=>mm[s.id]!==undefined&&mm[s.id]>=sub.passMarks).length;
-  doc.setFillColor(232,240,254); doc.roundedRect(14,fy,182,20,3,3,'F');
+  const total=students.length;
+  const appeared=students.filter(s=>mm[s.id]!==undefined&&mm[s.id]!=='AB').length;
+  const absent=students.filter(s=>mm[s.id]==='AB').length;
+  const passed=students.filter(s=>mm[s.id]!==undefined&&mm[s.id]!=='AB'&&mm[s.id]>=sub.passMarks).length;
+  doc.setFillColor(232,240,254); doc.roundedRect(14,fy,182,22,3,3,'F');
   doc.setTextColor(26,86,219); doc.setFont('helvetica','bold'); doc.setFontSize(9);
-  doc.text(`Total: ${total}  |  Appeared: ${appeared}  |  Passed: ${passed}  |  Failed: ${appeared-passed}  |  Pass Rate: ${appeared>0?Math.round(passed/appeared*100):0}%`, 105, fy+13, {align:'center'});
+  doc.text(`Total: ${total}  |  Appeared: ${appeared}  |  Absent: ${absent}  |  Passed: ${passed}  |  Failed: ${appeared-passed}  |  Pass Rate: ${appeared>0?Math.round(passed/appeared*100):0}%`, 105, fy+8, {align:'center'});
+  doc.setTextColor(100,100,100); doc.setFont('helvetica','normal'); doc.setFontSize(8);
+  doc.text('DATABASE DEVELOPED BY: SANA ULLAH YOUSAFZAI  |  Cell: 03419854128', 105, fy+17, {align:'center'});
 
-  doc.save(`${sub.name}_${cls?cls.name:''}_Result.pdf`);
+  doc.save(`${sub.name}_${cls?cls.name:''}_${semLabel}_Result.pdf`);
 }
 
 // ===== MODALS =====
@@ -2378,6 +2679,9 @@ function closeModal(id) { document.getElementById(id).style.display='none'; }
   </div>
 </div>
 
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 let excelData = [];
@@ -2490,9 +2794,6 @@ async function uploadExcelStudents() {
   }
 }
 </script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 <script>
@@ -2502,14 +2803,28 @@ async function uploadExcelStudents() {
   loadSchoolName();
   auth.onAuthStateChanged(async user => {
     if (user) {
-      const snap = await db.collection('users').doc(user.uid).get();
-      if (snap.exists) {
-        currentUser = user;
-        currentRole = snap.data().role;
-        currentTeacherData = snap.data();
-        await loadAllData();
-        initApp(snap.data());
+      try {
+        const snap = await db.collection('users').doc(user.uid).get();
+        if (snap.exists) {
+          currentUser = user;
+          currentRole = snap.data().role;
+          currentTeacherData = snap.data();
+          await loadAllData();
+          initApp(snap.data());
+        } else {
+          // User exists in Auth but not in Firestore users collection
+          await auth.signOut();
+          document.getElementById('loginScreen').style.display = 'flex';
+          document.getElementById('app').style.display = 'none';
+        }
+      } catch(e) {
+        document.getElementById('loginScreen').style.display = 'flex';
+        document.getElementById('app').style.display = 'none';
       }
+    } else {
+      // No user logged in — show login screen
+      document.getElementById('loginScreen').style.display = 'flex';
+      document.getElementById('app').style.display = 'none';
     }
   });
 </script>
