@@ -758,7 +758,10 @@ label { display: block; font-size: 13px; font-weight: 700; margin-bottom: 6px; }
       <div class="form-group"><label>Semester 1 — Total Marks *</label><input type="number" id="subjectSem1TotalInput" placeholder="e.g. 45" min="1"></div>
       <div class="form-group"><label>Semester 2 — Total Marks *</label><input type="number" id="subjectSem2TotalInput" placeholder="e.g. 55" min="1"></div>
     </div>
-    <div class="form-group"><label>Pass Marks *</label><input type="number" id="subjectPassMarksInput" placeholder="33" min="1"></div>
+    <div class="form-row">
+      <div class="form-group"><label>Semester 1 — Pass Marks *</label><input type="number" id="subjectSem1PassMarksInput" placeholder="e.g. 18" min="1"></div>
+      <div class="form-group"><label>Semester 2 — Pass Marks *</label><input type="number" id="subjectSem2PassMarksInput" placeholder="e.g. 22" min="1"></div>
+    </div>
     <input type="hidden" id="editSubjectId">
     <div class="modal-footer">
       <button class="btn btn-outline" onclick="closeModal('subjectModal')">Cancel</button>
@@ -1542,11 +1545,11 @@ async function deleteClass(id) {
 function renderSubjects() {
   const el = document.getElementById('subjectsList');
   if (!allSubjects.length) { el.innerHTML = '<div class="empty-state"><div class="emoji">📚</div><h3>Koi subject nahi — add karein</h3></div>'; return; }
-  let html = '<div class="table-wrapper"><table><thead><tr><th>#</th><th>Subject</th><th>Class</th><th>Sem1 Total</th><th>Sem2 Total</th><th>Pass</th><th>Action</th></tr></thead><tbody>';
+  let html = '<div class="table-wrapper"><table><thead><tr><th>#</th><th>Subject</th><th>Class</th><th>Sem1 Total</th><th>Sem2 Total</th><th>Sem1 Pass</th><th>Sem2 Pass</th><th>Action</th></tr></thead><tbody>';
   allSubjects.forEach((s,i) => {
     const cls = allClasses.find(c=>c.id===s.classId);
     html += `<tr><td>${i+1}</td><td><strong>${s.name}</strong></td><td><span class="badge badge-blue">${cls?cls.name:'?'}</span></td>
-      <td>${s.sem1Total||s.totalMarks}</td><td>${s.sem2Total||s.totalMarks}</td><td>${s.passMarks}</td>
+      <td>${s.sem1Total||s.totalMarks}</td><td>${s.sem2Total||s.totalMarks}</td><td>${s.sem1PassMarks||s.passMarks}</td><td>${s.sem2PassMarks||s.passMarks}</td>
       <td style="display:flex;gap:6px">
         <button class="btn btn-outline btn-sm" onclick="editSubject('${s.id}')">✏️</button>
         <button class="btn btn-danger btn-sm" onclick="deleteSubject('${s.id}')">🗑️</button>
@@ -1564,7 +1567,8 @@ function editSubject(id) {
   sel.value = s.classId;
   document.getElementById('subjectSem1TotalInput').value = s.sem1Total || s.totalMarks || '';
   document.getElementById('subjectSem2TotalInput').value = s.sem2Total || s.totalMarks || '';
-  document.getElementById('subjectPassMarksInput').value = s.passMarks;
+  document.getElementById('subjectSem1PassMarksInput').value = s.sem1PassMarks || s.passMarks || '';
+  document.getElementById('subjectSem2PassMarksInput').value = s.sem2PassMarks || s.passMarks || '';
   document.getElementById('editSubjectId').value = id;
   document.querySelector('#subjectModal .modal-title').textContent = '✏️ Subject Edit Karein';
   openModal('subjectModal');
@@ -1575,20 +1579,23 @@ async function saveSubject() {
   const classId = document.getElementById('subjectClassInput').value;
   const sem1Total = parseInt(document.getElementById('subjectSem1TotalInput').value);
   const sem2Total = parseInt(document.getElementById('subjectSem2TotalInput').value);
-  const passMarks = parseInt(document.getElementById('subjectPassMarksInput').value);
+  const sem1PassMarks = parseInt(document.getElementById('subjectSem1PassMarksInput').value);
+  const sem2PassMarks = parseInt(document.getElementById('subjectSem2PassMarksInput').value);
+  const passMarks = Math.min(sem1PassMarks||0, sem2PassMarks||0); // fallback for old code
   const totalMarks = (sem1Total||0) + (sem2Total||0);
   const editId = document.getElementById('editSubjectId').value;
-  if (!name||!classId||!sem1Total||!sem2Total||!passMarks) { alert('Sab fields bharein'); return; }
+  if (!name||!classId||!sem1Total||!sem2Total||!sem1PassMarks||!sem2PassMarks) { alert('Sab fields bharein'); return; }
   if (editId) {
-    await db.collection('subjects').doc(editId).update({ name, classId, sem1Total, sem2Total, totalMarks, passMarks });
+    await db.collection('subjects').doc(editId).update({ name, classId, sem1Total, sem2Total, totalMarks, sem1PassMarks, sem2PassMarks, passMarks });
   } else {
-    await db.collection('subjects').add({ name, classId, sem1Total, sem2Total, totalMarks, passMarks, createdAt: new Date() });
+    await db.collection('subjects').add({ name, classId, sem1Total, sem2Total, totalMarks, sem1PassMarks, sem2PassMarks, passMarks, createdAt: new Date() });
   }
   closeModal('subjectModal');
   document.getElementById('subjectNameInput').value='';
   document.getElementById('subjectSem1TotalInput').value='';
   document.getElementById('subjectSem2TotalInput').value='';
-  document.getElementById('subjectPassMarksInput').value='';
+  document.getElementById('subjectSem1PassMarksInput').value='';
+  document.getElementById('subjectSem2PassMarksInput').value='';
   document.getElementById('editSubjectId').value='';
   document.querySelector('#subjectModal .modal-title').textContent = '📚 Subject Add Karein';
   await loadAllData(); renderSubjects();
@@ -1627,15 +1634,23 @@ function renderTeachers() {
 function populateTeacherSubjectList() {
   const el = document.getElementById('teacherSubjectList');
   if (!allSubjects.length) { el.innerHTML = '<div class="text-muted text-sm" style="padding:8px">Pehle subjects add karein</div>'; return; }
-  el.innerHTML = allSubjects.map(s => {
+  // Group subjects by class
+  const grouped = {};
+  allSubjects.forEach(s => {
     const cls = allClasses.find(c=>c.id===s.classId);
     const clsLabel = cls ? cls.name + (cls.section ? ' ('+cls.section+')' : '') : '?';
-    return `<div class="subject-assign-item">
+    if (!grouped[clsLabel]) grouped[clsLabel] = [];
+    grouped[clsLabel].push(s);
+  });
+  el.innerHTML = Object.entries(grouped).map(([clsLabel, subs]) => `
+    <div style="padding:6px 8px 2px;font-size:11px;font-weight:700;color:#1a56db;background:#f0f4ff;border-radius:6px;margin-top:6px;letter-spacing:0.5px">
+      ${clsLabel}
+    </div>
+    ${subs.map(s => `<div class="subject-assign-item">
       <input type="checkbox" id="tsub_${s.id}" value="${s.id}">
       <label for="tsub_${s.id}">${s.name}</label>
-      <span class="sub-class">${clsLabel}</span>
-    </div>`;
-  }).join('');
+    </div>`).join('')}
+  `).join('');
 }
 
 function editTeacher(id) {
@@ -1832,7 +1847,8 @@ async function renderTeacherMarksForm(sub) {
     return;
   }
 
-  let html = `<div class="teacher-subject-card"><h2>📝 ${sub.name} — ${semLabel}</h2><p>${cls?cls.name:''} — Total: ${sub.totalMarks} | Pass: ${sub.passMarks}</p></div>
+  const semTotal = activeSemester===2 ? (sub.sem2Total||sub.totalMarks) : (sub.sem1Total||sub.totalMarks);
+  let html = `<div class="teacher-subject-card"><h2>📝 ${sub.name} — ${semLabel}</h2><p>${cls?cls.name:''} — Total: ${semTotal} | Pass: ${activeSemester===2?(sub.sem2PassMarks||sub.passMarks):(sub.sem1PassMarks||sub.passMarks)}</p></div>
   <div class="card">
     <div id="saveMsg_${sub.id}"></div>
     <div class="table-wrapper">
@@ -1843,15 +1859,15 @@ async function renderTeacherMarksForm(sub) {
     const isAbsent = val === 'AB';
     const statusHtml = isAbsent
       ? '<span style="color:#fff;background:#dc2626;padding:3px 10px;border-radius:6px;font-weight:700;font-size:12px">ABSENT</span>'
-      : val !== '' ? (val >= sub.passMarks ? '<span style="color:var(--success);font-weight:700">✅ Pass</span>' : '<span style="color:var(--danger);font-weight:700">❌ Fail</span>') : '—';
+      : val !== '' ? (val >= (activeSemester===2?(sub.sem2PassMarks||sub.passMarks):(sub.sem1PassMarks||sub.passMarks)) ? '<span style="color:var(--success);font-weight:700">✅ Pass</span>' : '<span style="color:var(--danger);font-weight:700">❌ Fail</span>') : '—';
     html += `<tr id="row_${sub.id}_${s.id}" style="${isAbsent?'background:#fff5f5':''}">
       <td><strong>${s.rollNo}</strong></td><td>${s.name}</td><td>${s.fatherName}</td>
       <td>
         <div style="display:flex;align-items:center;gap:8px">
           <input type="number" min="0" max="${activeSemester===2?(sub.sem2Total||sub.totalMarks):(sub.sem1Total||sub.totalMarks)}" value="${isAbsent?'':val}" id="mk_${sub.id}_${s.id}"
             ${isAbsent?'disabled style="width:80px;text-align:center;font-weight:700;font-size:15px;opacity:0.4;background:#f3f4f6"':'style="width:80px;text-align:center;font-weight:700;font-size:15px"'}
-            onchange="updateStatusLive('${sub.id}','${s.id}',${sub.passMarks},${sub.totalMarks})">
-          <button id="absbtn_${sub.id}_${s.id}" onclick="toggleAbsent('${sub.id}','${s.id}',${sub.passMarks},${sub.totalMarks})"
+            onchange="updateStatusLive('${sub.id}','${s.id}',${activeSemester===2?(sub.sem2PassMarks||sub.passMarks):(sub.sem1PassMarks||sub.passMarks)},${semTotal})">
+          <button id="absbtn_${sub.id}_${s.id}" onclick="toggleAbsent('${sub.id}','${s.id}',${activeSemester===2?(sub.sem2PassMarks||sub.passMarks):(sub.sem1PassMarks||sub.passMarks)},${semTotal})"
             style="padding:5px 10px;border:none;border-radius:8px;cursor:pointer;font-weight:700;font-size:12px;
             background:${isAbsent?'#6b7280':'#dc2626'};color:white;transition:all 0.2s">
             ${isAbsent?'↩ Wapas':'🚫 Absent'}
@@ -1863,7 +1879,7 @@ async function renderTeacherMarksForm(sub) {
 
   html += `</tbody></table></div>
     <div style="margin-top:16px;text-align:right">
-      <button class="btn btn-success" onclick="saveAllMarks('${sub.id}','${sub.classId}',${sub.passMarks})">💾 Sab Save Karein</button>
+      <button class="btn btn-success" onclick="saveAllMarks('${sub.id}','${sub.classId}',${activeSemester===2?(sub.sem2PassMarks||sub.passMarks):(sub.sem1PassMarks||sub.passMarks)})">💾 Sab Save Karein</button>
     </div>
   </div>`;
   contentEl.innerHTML = html;
@@ -2549,15 +2565,17 @@ async function downloadPDF(subjectId, classId, semester) {
   doc.setFont('helvetica','normal');
   doc.text(examName ? `${examName} — ${semLabel}` : semLabel, 105, 21, {align:'center'});
   doc.setFontSize(9);
-  doc.text(`Subject: ${sub.name}   |   Class: ${cls?cls.name+(cls.section?' - '+cls.section:''):''}   |   Total: ${sub.totalMarks}   |   Pass: ${sub.passMarks}`, 105, 30, {align:'center'});
+  const pdfSemTotal = semester===2 ? (sub.sem2Total||sub.totalMarks) : (sub.sem1Total||sub.totalMarks);
+  const pdfSemPass = semester===2 ? (sub.sem2PassMarks||sub.passMarks) : (sub.sem1PassMarks||sub.passMarks);
+  doc.text(`Subject: ${sub.name}   |   Class: ${cls?cls.name+(cls.section?' - '+cls.section:''):''}   |   Total: ${pdfSemTotal}   |   Pass: ${pdfSemPass}`, 105, 30, {align:'center'});
   doc.text(`Generated: ${new Date().toLocaleDateString('en-PK')}`, 105, 37, {align:'center'});
 
   const rows = students.map((s,i)=>{
     const m = mm[s.id];
     const isAbsent = m === 'AB';
     const obtained = isAbsent ? 'ABSENT' : (m!==undefined ? m : 'N/A');
-    const result = isAbsent ? 'Absent' : (m!==undefined ? (m>=sub.passMarks?'Pass':'Fail') : 'Pending');
-    return [i+1, s.rollNo, s.name, s.fatherName, obtained, sub.totalMarks, result];
+    const result = isAbsent ? 'Absent' : (m!==undefined ? (m>=pdfSemPass?'Pass':'Fail') : 'Pending');
+    return [i+1, s.rollNo, s.name, s.fatherName, obtained, pdfSemTotal, result];
   });
 
   doc.autoTable({
@@ -2583,7 +2601,7 @@ async function downloadPDF(subjectId, classId, semester) {
   const total=students.length;
   const appeared=students.filter(s=>mm[s.id]!==undefined&&mm[s.id]!=='AB').length;
   const absent=students.filter(s=>mm[s.id]==='AB').length;
-  const passed=students.filter(s=>mm[s.id]!==undefined&&mm[s.id]!=='AB'&&mm[s.id]>=sub.passMarks).length;
+  const passed=students.filter(s=>mm[s.id]!==undefined&&mm[s.id]!=='AB'&&mm[s.id]>=pdfSemPass).length;
   doc.setFillColor(232,240,254); doc.roundedRect(14,fy,182,22,3,3,'F');
   doc.setTextColor(26,86,219); doc.setFont('helvetica','bold'); doc.setFontSize(9);
   doc.text(`Total: ${total}  |  Appeared: ${appeared}  |  Absent: ${absent}  |  Passed: ${passed}  |  Failed: ${appeared-passed}  |  Pass Rate: ${appeared>0?Math.round(passed/appeared*100):0}%`, 105, fy+8, {align:'center'});
