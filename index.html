@@ -1310,10 +1310,6 @@ async function loadResultCardPreview() {
       <div style="margin-top:14px;text-align:center;font-size:12px;font-weight:700;color:#374151">
         Result Declaration Date: <span style="color:#1a56db">${today}</span>
       </div>
-      <!-- Developer Footer -->
-      <div style="margin-top:8px;text-align:center;font-size:11px;color:#9ca3af;border-top:1px solid #f3f4f6;padding-top:8px">
-        DATABASE DEVELOPED BY: <strong style="color:#6b7280">SANA ULLAH YOUSAFZAI</strong> &nbsp;&nbsp;| Cell: <strong style="color:#6b7280">03419854128</strong>
-      </div>
     </div>`;
   });
 
@@ -2382,8 +2378,8 @@ async function viewSingleResultCard(studentId, classId, semFilter) {
       const rc = isAbsent?'#dc2626':(obtained!==undefined?(pass?'#057a55':'#c81e1e'):'#6b7280');
       subjectRows+=`<tr>
         <td style="padding:7px 10px;border:1px solid #e0e0e0">${sub.name}</td>
-        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${sub.totalMarks}</td>
-        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${sub.passMarks}</td>
+        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${isSem2?(sub.sem2Total||sub.totalMarks):(sub.sem1Total||sub.totalMarks)}</td>
+        <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center">${isSem2?(sub.sem2PassMarks||sub.passMarks):(sub.sem1PassMarks||sub.passMarks)}</td>
         <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700">${isAbsent?abBadge:(obtained!==undefined?obtained:'—')}</td>
         <td style="padding:7px 10px;border:1px solid #e0e0e0;text-align:center;font-weight:700;color:${rc}">${isAbsent?abBadge:(obtained!==undefined?(pass?'Pass':'Fail'):'—')}</td>
       </tr>`;
@@ -2438,10 +2434,6 @@ async function viewSingleResultCard(studentId, classId, semFilter) {
       <!-- Result Declaration Date -->
       <div style="margin-top:14px;text-align:center;font-size:12px;font-weight:700;color:#374151">
         Result Declaration Date: <span style="color:#1a56db">${today}</span>
-      </div>
-      <!-- Developer Footer -->
-      <div style="margin-top:8px;text-align:center;font-size:11px;color:#9ca3af;border-top:1px solid #f3f4f6;padding-top:8px">
-        DATABASE DEVELOPED BY: <strong style="color:#6b7280">SANA ULLAH YOUSAFZAI</strong> &nbsp;&nbsp;| Cell: <strong style="color:#6b7280">03419854128</strong>
       </div>
     </div>`;
 
@@ -2605,9 +2597,6 @@ async function downloadPDF(subjectId, classId, semester) {
   doc.setFillColor(232,240,254); doc.roundedRect(14,fy,182,22,3,3,'F');
   doc.setTextColor(26,86,219); doc.setFont('helvetica','bold'); doc.setFontSize(9);
   doc.text(`Total: ${total}  |  Appeared: ${appeared}  |  Absent: ${absent}  |  Passed: ${passed}  |  Failed: ${appeared-passed}  |  Pass Rate: ${appeared>0?Math.round(passed/appeared*100):0}%`, 105, fy+8, {align:'center'});
-  doc.setTextColor(100,100,100); doc.setFont('helvetica','normal'); doc.setFontSize(8);
-  doc.text('DATABASE DEVELOPED BY: SANA ULLAH YOUSAFZAI  |  Cell: 03419854128', 105, fy+17, {align:'center'});
-
   doc.save(`${sub.name}_${cls?cls.name:''}_${semLabel}_Result.pdf`);
 }
 
